@@ -13,7 +13,10 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
 @Composable
-fun Homepage(navController: NavController) {
+fun Homepage(
+    navController: NavController,
+    sessionManager: SessionManager
+) {
     var message by remember { mutableStateOf("Loading...") }
 
     LaunchedEffect(Unit) {
@@ -42,6 +45,12 @@ fun Homepage(navController: NavController) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = message)
             Spacer(modifier = Modifier.height(24.dp))
+        }
+        Button(onClick = {
+            sessionManager.clearSession()
+            navController.navigate(NavLogin)
+        }) {
+            Text("Logout")
         }
     }
 }

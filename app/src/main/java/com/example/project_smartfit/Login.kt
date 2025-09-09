@@ -1,24 +1,26 @@
 package com.example.project_smartfit
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import com.example.project_smartfit.ui.theme.SessionManager
 
 @Composable
-fun Login(navController: NavController) {
+fun Login(
+    navController: NavController,
+    sessionManager: SessionManager
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
-
-    val context = LocalContext.current
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -58,9 +60,9 @@ fun Login(navController: NavController) {
                                     val doc = documents.documents.first()
                                     val userId = doc.getString("userId") ?: ""
                                     // Save session
-                                    SessionManager.getInstance(context).saveSession(userId, email)
+                                    sessionManager.saveSession(userId, email)
                                     message = "Login successful!"
-                                    navController.navigate(ScreenB)
+                                    navController.navigate(NavHomepage)
                                 } else {
                                     message = "Invalid email or password"
                                 }
@@ -78,6 +80,12 @@ fun Login(navController: NavController) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = message)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Don't have an account? Sign up",
+                color = Color.Blue,
+                modifier = Modifier.clickable { navController.navigate(NavSignup) }
+            )
         }
     }
 }
