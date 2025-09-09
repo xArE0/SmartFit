@@ -16,11 +16,9 @@ credentialsPlayServicesAuth = "1.5.0"
 googleid = "1.1.1"
 firebaseFirestore = "26.0.0"
 
-serialization = "1.7.3" # instead of 1.9.0
+serialization = "1.7.3"
 composeNavigation = "2.8.0-beta02"
-navigationCompose = "2.9.3" # more stable than alpha08
-
-
+navigationCompose = "2.9.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,5 +51,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
 
