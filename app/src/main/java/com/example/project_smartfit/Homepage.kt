@@ -6,13 +6,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
 @Composable
-fun Homepage(onLogout: () -> Unit = {}) {
+fun Homepage(navController: NavController) {
     var message by remember { mutableStateOf("Loading...") }
 
     LaunchedEffect(Unit) {
@@ -41,9 +42,6 @@ fun Homepage(onLogout: () -> Unit = {}) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = message)
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = { onLogout() }) {
-                Text("Logout")
-            }
         }
     }
 }
