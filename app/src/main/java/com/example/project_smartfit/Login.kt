@@ -8,12 +8,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.ui.platform.LocalContext
+import com.example.project_smartfit.ui.theme.SessionManager
 
 @Composable
 fun Login(onLoginSuccess: () -> Unit = {}) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -50,6 +54,10 @@ fun Login(onLoginSuccess: () -> Unit = {}) {
                             .get()
                             .addOnSuccessListener { documents ->
                                 if (!documents.isEmpty) {
+                                    val doc = documents.documents.first()
+                                    val userId = doc.getString("userId") ?: ""
+                                    // Save session
+                                    SessionManager.getInstance(context).saveSession(userId, email)
                                     message = "Login successful!"
                                     onLoginSuccess()
                                 } else {

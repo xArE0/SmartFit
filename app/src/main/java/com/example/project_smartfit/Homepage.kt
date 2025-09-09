@@ -1,18 +1,18 @@
 package com.example.project_smartfit
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
 @Composable
-fun Homepage() {
+fun Homepage(onLogout: () -> Unit = {}) {
     var message by remember { mutableStateOf("Loading...") }
 
     LaunchedEffect(Unit) {
@@ -38,6 +38,12 @@ fun Homepage() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = message)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = message)
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = { onLogout() }) {
+                Text("Logout")
+            }
+        }
     }
 }
