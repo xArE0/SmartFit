@@ -1,8 +1,12 @@
+import org.jetbrains.kotlin.utils.sure
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
+
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
 }
 
 android {
@@ -32,6 +36,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.6.11"
+    }
+
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -63,4 +72,8 @@ dependencies {
 
     //Firebase Dependencies
     implementation(libs.firebase.firestore)
+
+    implementation(libs.navigation.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.kotlinx.serialization.json)
 }

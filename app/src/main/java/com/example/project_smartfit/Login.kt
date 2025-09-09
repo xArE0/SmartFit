@@ -9,10 +9,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavController
 import com.example.project_smartfit.ui.theme.SessionManager
 
 @Composable
-fun Login(onLoginSuccess: () -> Unit = {}) {
+fun Login(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
@@ -59,7 +60,7 @@ fun Login(onLoginSuccess: () -> Unit = {}) {
                                     // Save session
                                     SessionManager.getInstance(context).saveSession(userId, email)
                                     message = "Login successful!"
-                                    onLoginSuccess()
+                                    navController.navigate(ScreenB)
                                 } else {
                                     message = "Invalid email or password"
                                 }
