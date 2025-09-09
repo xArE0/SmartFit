@@ -1,4 +1,4 @@
-package com.example.project_smartfit.ui.theme
+package com.example.project_smartfit
 
 import android.content.Context
 import android.content.SharedPreferences

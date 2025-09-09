@@ -7,21 +7,24 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.serialization.Serializable
 
-
 @Composable
 fun Navigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
+    val sessionManager = SessionManager.getInstance(context)
+    val startDestination = if (sessionManager.isLoggedIn()) NavHomepage else NavLogin
     NavHost(
         navController = navController,
-        startDestination = NavHomepage
+        startDestination = startDestination
     ) {
-        composable<NavLogin> {
-            Login(navController)
-        }
         composable<NavHomepage> {
-           Homepage(navController)
+            Homepage(navController,sessionManager)
         }
+
+        composable<NavLogin> {
+            Login(navController,sessionManager)
+        }
+
         composable<NavSignup> {
             Signup(navController)
         }
