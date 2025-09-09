@@ -9,11 +9,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 
 @Composable
-fun Signup(onSignupSuccess: () -> Unit = {}) {
+fun Signup(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
@@ -59,7 +60,7 @@ fun Signup(onSignupSuccess: () -> Unit = {}) {
                             .set(user)
                             .addOnSuccessListener {
                                 message = "Signup successful!"
-                                onSignupSuccess()
+                                navController.navigate(NavLogin)
                             }
                             .addOnFailureListener {
                                 message = "Signup failed: ${it.message}"
