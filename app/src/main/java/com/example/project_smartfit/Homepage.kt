@@ -12,45 +12,61 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Homepage(
     navController: NavController,
     sessionManager: SessionManager
 ) {
     var message by remember { mutableStateOf("Loading...") }
+    val name = sessionManager.getEmail() ?: "User"
+    var selectedIndex by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        val database = FirebaseDatabase.getInstance()
-        val myRef = database.getReference("message")
-
-        // Write a message to the database
-        myRef.setValue("Hello, World!")
-
-        // Read message from the database
-        myRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                message = snapshot.getValue(String::class.java) ?: "No data"
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Welcome $name") }
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedIndex == 0,
+                    onClick = { selectedIndex = 0 },
+                    label = { Text("Home") },
+                    icon = {}
+                )
+                NavigationBarItem(
+                    selected = selectedIndex == 1,
+                    onClick = { selectedIndex = 1 },
+                    label = { Text("Stats") },
+                    icon = {}
+                )
+                NavigationBarItem(
+                    selected = selectedIndex == 2,
+                    onClick = { selectedIndex = 2 },
+                    label = { Text("Profile") },
+                    icon = {}
+                )
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                message = "Error: ${error.message}"
-            }
-        })
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = message)
-            Spacer(modifier = Modifier.height(24.dp))
         }
-        Button(onClick = {
-            sessionManager.clearSession()
-            navController.navigate(NavLogin)
-        }) {
-            Text("Logout")
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = message)
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(onClick = {
+                    sessionManager.clearSession()
+                    navController.navigate(NavLogin)
+                }) {
+                    Text("Logout")
+                }
+            }
         }
     }
 }
