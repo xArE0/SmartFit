@@ -14,19 +14,25 @@ fun Navigation() {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = ScreenA
+        startDestination = NavHomepage
     ) {
-        composable<ScreenA> {
+        composable<NavLogin> {
             Login(navController)
         }
-        composable<ScreenB> {
+        composable<NavHomepage> {
            Homepage(navController)
+        }
+        composable<NavSignup> {
+            Signup(navController)
         }
     }
 }
 
 @Serializable
-object ScreenA
+object NavHomepage
 
 @Serializable
-object ScreenB
+object NavLogin
+
+@Serializable
+object NavSignup
