@@ -12,7 +12,7 @@ fun Navigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
     val sessionManager = SessionManager.getInstance(context)
-    val startDestination = if (sessionManager.isLoggedIn()) NavHomepage else NavLogin
+    val startDestination = if (sessionManager.isLoggedIn()) NavHomepage else NavSignup
     NavHost(
         navController = navController,
         startDestination = startDestination
