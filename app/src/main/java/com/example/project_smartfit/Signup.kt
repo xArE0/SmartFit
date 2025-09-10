@@ -206,6 +206,18 @@ fun Signup(navController: NavController) {
                     Button(
                         onClick = {
                             if (age.isNotBlank() && weight.isNotBlank() && height.isNotBlank()) {
+                                if (!ValidationUtils.isValidAge(age)) {
+                                    message = "Please enter a valid age (5-120)"
+                                    return@Button
+                                }
+                                if (!ValidationUtils.isValidWeight(weight)) {
+                                    message = "Please enter a realistic weight (20-400 kg)"
+                                    return@Button
+                                }
+                                if (!ValidationUtils.isValidHeight(height)) {
+                                    message = "Please enter a realistic height (50-250 cm)"
+                                    return@Button
+                                }
                                 step = 3
                             } else {
                                 message = "Please fill all fields"
@@ -249,6 +261,14 @@ fun Signup(navController: NavController) {
                     Button(
                         onClick = {
                             if (email.isNotBlank() && password.isNotBlank()) {
+                                if (!ValidationUtils.isValidEmail(email)) {
+                                    message = "Please enter a valid email"
+                                    return@Button
+                                }
+                                if (!ValidationUtils.isStrongPassword(password)) {
+                                    message = "Password must be at least 8 characters, include upper and lower case, a digit, and a special character"
+                                    return@Button
+                                }
                                 val userId = UUID.randomUUID().toString()
                                 val user = hashMapOf(
                                     "userId" to userId,
