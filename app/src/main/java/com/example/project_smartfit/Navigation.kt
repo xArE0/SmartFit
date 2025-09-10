@@ -21,6 +21,10 @@ fun Navigation() {
             Homepage(navController,sessionManager)
         }
 
+        composable<NavProfile> {
+            Profile(navController,sessionManager)
+        }
+
         composable<NavLogin> {
             Login(navController,sessionManager)
         }
@@ -33,6 +37,9 @@ fun Navigation() {
 
 @Serializable
 object NavHomepage
+
+@Serializable
+object NavProfile
 
 @Serializable
 object NavLogin

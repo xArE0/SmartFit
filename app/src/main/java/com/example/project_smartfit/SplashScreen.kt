@@ -1,6 +1,5 @@
 package com.example.project_smartfit
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +9,9 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,41 +45,58 @@ fun SplashScreenApp() {
     }
 }
 
+
 @Composable
 fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0D0D0D), // Near Black
+                        Color(0xFF1A1A1A)  // Dark Gray
+                    )
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_launcher_background),
-                contentDescription = "App Logo",
+            Icon(
+                imageVector = Icons.Filled.FitnessCenter,
+                contentDescription = "Gym Icon",
+                tint = Color(0xFF00E676), // Neon Green Accent
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
+                    .fillMaxWidth(0.25f)
                     .aspectRatio(1f)
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "SmartFit",
                 style = TextStyle(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFFFF69B4), // Neon Pink
-                            Color(0xFF4C4CFF), // Neon Blue
-                            Color(0xFF00FF00)  // Neon Green
+                            Color(0xFFB0BEC5), // Light Silver
+                            Color(0xFF37474F)  // Dark Steel
                         )
                     ),
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Train Smart. Move Right.",
+                color = Color(0xFF00E676), // Neon Green accent
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }

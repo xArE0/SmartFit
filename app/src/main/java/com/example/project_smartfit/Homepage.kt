@@ -1,16 +1,25 @@
 package com.example.project_smartfit
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.ValueEventListener
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,7 +29,6 @@ fun Homepage(
 ) {
     var message by remember { mutableStateOf("Loading...") }
     val name = sessionManager.getEmail() ?: "User"
-    var selectedIndex by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -29,26 +37,7 @@ fun Homepage(
             )
         },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedIndex == 0,
-                    onClick = { selectedIndex = 0 },
-                    label = { Text("Home") },
-                    icon = {}
-                )
-                NavigationBarItem(
-                    selected = selectedIndex == 1,
-                    onClick = { selectedIndex = 1 },
-                    label = { Text("Stats") },
-                    icon = {}
-                )
-                NavigationBarItem(
-                    selected = selectedIndex == 2,
-                    onClick = { selectedIndex = 2 },
-                    label = { Text("Profile") },
-                    icon = {}
-                )
-            }
+            BottomNavBar(navController)
         }
     ) { innerPadding ->
         Box(
