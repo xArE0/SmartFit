@@ -1,9 +1,8 @@
 package com.example.project_smartfit
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,8 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -107,31 +106,41 @@ fun Signup(navController: NavController) {
     val fitnessLevels = listOf("Beginner", "Intermediate", "Advanced")
     val genders = listOf("Male", "Female", "Other")
 
-    // Pick a background image for each step
-    val backgroundRes = when (step) {
-        0 -> R.drawable.bg1
-        1 -> R.drawable.bg2
-        2 -> R.drawable.bg3
-        3 -> R.drawable.bg4
-        else -> R.drawable.bg
-    }
-
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
-        // Animated background image
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(animationSpec = tween(500)),
-            exit = fadeOut(animationSpec = tween(500)),
-            modifier = Modifier.zIndex(0f)
-        ) {
-            Image(
-                painter = painterResource(id = backgroundRes),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+        // Crossfade animation
+        Crossfade(
+            targetState = step,
+            animationSpec = tween(
+                durationMillis = 800,  // Increase duration for smoother transition
+                easing = LinearEasing  // Use linear easing for smoother crossfade
+            ),
+            modifier = Modifier.zIndex(0f),
+            label = "background"
+        ) { currentStep ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)  // Ensure black background during transition
+            ) {
+                Image(
+                    painter = painterResource(
+                        id = when (currentStep) {
+                            0 -> R.drawable.bg1
+                            1 -> R.drawable.bg2
+                            2 -> R.drawable.bg3
+                            3 -> R.drawable.bg4
+                            else -> R.drawable.bg
+                        }
+                    ),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         // 2. Gradient overlay for better readability (middle layer)
