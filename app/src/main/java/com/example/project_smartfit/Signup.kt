@@ -1,7 +1,12 @@
 package com.example.project_smartfit
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -39,6 +45,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -58,6 +66,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,15 +75,14 @@ import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
 
-// Exercise-themed color scheme
-private val PrimaryGreen = Color(0xFF2E8B57)
-private val SecondaryOrange = Color(0xFFFF6B35)
-private val AccentBlue = Color(0xFF1E90FF)
-private val DarkGray = Color(0xFF2C2C2C)
-private val LightGray = Color(0xFFF5F5F5)
-private val TextDark = Color(0xFF1A1A1A)
-private val ErrorRed = Color(0xFFE74C3C)
-private val SuccessGreen = Color(0xFF27AE60)
+// Update color scheme for dark background
+private val PrimaryGreen = Color(0xFF4ADE80)  // Brighter green
+private val SecondaryOrange = Color(0xFFFF9F5A)  // Brighter orange
+private val AccentBlue = Color(0xFF60A5FA)  // Brighter blue
+private val TextLight = Color.White
+private val TextSecondary = Color.White.copy(alpha = 0.7f)
+private val ErrorRed = Color(0xFFFF5757)
+private val SuccessGreen = Color(0xFF4ADE80)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,25 +109,30 @@ fun Signup(navController: NavController) {
 
     // Pick a background image for each step
     val backgroundRes = when (step) {
-        0 -> R.drawable.bg
-        1 -> R.drawable.bg
-        2 -> R.drawable.bg
-        3 -> R.drawable.bg
+        0 -> R.drawable.bg1
+        1 -> R.drawable.bg2
+        2 -> R.drawable.bg3
+        3 -> R.drawable.bg4
         else -> R.drawable.bg
     }
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Background image (lowest layer)
-        Image(
-            painter = painterResource(id = backgroundRes),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(0f)
-        )
+        // Animated background image
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(animationSpec = tween(500)),
+            exit = fadeOut(animationSpec = tween(500)),
+            modifier = Modifier.zIndex(0f)
+        ) {
+            Image(
+                painter = painterResource(id = backgroundRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // 2. Gradient overlay for better readability (middle layer)
         Box(
@@ -181,7 +194,8 @@ fun Signup(navController: NavController) {
                             } else {
                                 message = "Please fill all fields"
                             }
-                        }
+                        },
+                        onBack = { if (step > 0) step-- }
                     )
                     2 -> MetricsStep(
                         age = age,
@@ -210,7 +224,8 @@ fun Signup(navController: NavController) {
                             } else {
                                 message = "Please fill all fields"
                             }
-                        }
+                        },
+                        onBack = { if (step > 1) step-- }
                     )
                     3 -> AccountStep(
                         email = email,
@@ -266,7 +281,8 @@ fun Signup(navController: NavController) {
                                 message = "Please enter email and password"
                             }
                         },
-                        onLoginClick = { navController.navigate(NavLogin) }
+                        onLoginClick = { navController.navigate(NavLogin) },
+                        onBack = { if (step > 2) step-- }
                     )
                 }
             }
@@ -317,67 +333,164 @@ private fun WelcomeStep(
             .heightIn(min = 380.dp, max = 500.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.95f)
+            containerColor = Color.White.copy(alpha = 0.1f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 40.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.2f),
+                            Color.White.copy(alpha = 0.05f)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.5f),
+                            Color.White.copy(alpha = 0.1f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
         ) {
-            Icon(
-                imageVector = Icons.Default.FitnessCenter,
-                contentDescription = null,
-                tint = PrimaryGreen,
-                modifier = Modifier.size(72.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "Welcome to SmartFit!",
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextDark,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Transform your fitness journey with personalized workouts and tracking",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF6C757D),
-                textAlign = TextAlign.Center,
-                lineHeight = 24.sp
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryGreen
-                ),
-                shape = RoundedCornerShape(12.dp)
+            // Update text colors in the content
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 40.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.FitnessCenter,
+                    contentDescription = null,
+                    tint = PrimaryGreen,
+                    modifier = Modifier.size(72.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "Get Started",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Welcome to SmartFit!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = TextLight,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Transform your fitness journey with personalized workouts and tracking",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryGreen
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "Get Started",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Already have an account? Sign In",
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .clickable { onLoginClick() }
+                        .padding(vertical = 8.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Already have an account? Sign In",
-                color = PrimaryGreen,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clickable { onLoginClick() }
-                    .padding(vertical = 8.dp)
-            )
         }
     }
+}
+
+// Helper function for consistent glass card style
+@Composable
+private fun GlassCardStyle(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.1f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.2f),
+                            Color.White.copy(alpha = 0.05f)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.5f),
+                            Color.White.copy(alpha = 0.1f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
+        ) {
+            content()
+        }
+    }
+}
+
+// Update text field colors for all steps
+@Composable
+private fun CustomOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    leadingIcon: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None  // Fixed parameter type
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, color = TextSecondary) },
+        leadingIcon = leadingIcon,
+        singleLine = true,
+        modifier = modifier,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color.White,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+            focusedLabelColor = Color.White,
+            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            cursorColor = Color.White
+        ),
+        textStyle = LocalTextStyle.current.copy(color = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        visualTransformation = visualTransformation
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -392,21 +505,29 @@ private fun PersonalInfoStep(
     genders: List<String>,
     fitnessLevels: List<String>,
     message: String,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onBack: () -> Unit  // Add back handler
 ) {
-    Card(
+    GlassCardStyle(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.95f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .heightIn(min = 420.dp, max = 600.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
         ) {
+            // Add back button at the top
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Go back",
+                    tint = PrimaryGreen
+                )
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -421,28 +542,20 @@ private fun PersonalInfoStep(
                 Text(
                     text = "Tell us about yourself",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = TextDark,
+                    color = TextLight,
                     fontWeight = FontWeight.Bold
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            OutlinedTextField(
+            CustomOutlinedTextField(
                 value = name,
                 onValueChange = onNameChange,
-                label = { Text("Name or Nickname") },
+                label = "Name or Nickname",
                 leadingIcon = {
-                    Icon(Icons.Default.Badge, contentDescription = null, tint = PrimaryGreen)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryGreen,
-                    focusedLabelColor = PrimaryGreen,
-                    focusedLeadingIconColor = PrimaryGreen
-                ),
-                shape = RoundedCornerShape(12.dp)
+                    Icon(Icons.Default.Badge, contentDescription = null, tint = TextLight)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -467,18 +580,24 @@ private fun PersonalInfoStep(
                         .fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
                         focusedLabelColor = PrimaryGreen,
-                        focusedLeadingIconColor = PrimaryGreen
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedLeadingIconColor = PrimaryGreen,
+                        unfocusedLeadingIconColor = Color.White,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
                     expanded = genderExpanded,
-                    onDismissRequest = { genderExpanded = false }
+                    onDismissRequest = { genderExpanded = false },
+                    modifier = Modifier.background(Color(0xFF2A2A2A))  // Dark background for dropdown
                 ) {
                     genders.forEach { genderOption ->
                         DropdownMenuItem(
-                            text = { Text(genderOption) },
+                            text = { Text(genderOption, color = Color.White) },  // White text
                             onClick = {
                                 onGenderChange(genderOption)
                                 genderExpanded = false
@@ -510,18 +629,24 @@ private fun PersonalInfoStep(
                         .fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
                         focusedLabelColor = PrimaryGreen,
-                        focusedLeadingIconColor = PrimaryGreen
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedLeadingIconColor = PrimaryGreen,
+                        unfocusedLeadingIconColor = Color.White,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
                     expanded = fitnessExpanded,
-                    onDismissRequest = { fitnessExpanded = false }
+                    onDismissRequest = { fitnessExpanded = false },
+                    modifier = Modifier.background(Color(0xFF2A2A2A))  // Dark background for dropdown
                 ) {
                     fitnessLevels.forEach { level ->
                         DropdownMenuItem(
-                            text = { Text(level) },
+                            text = { Text(level, color = Color.White) },  // White text
                             onClick = {
                                 onFitnessLevelChange(level)
                                 fitnessExpanded = false
@@ -577,129 +702,136 @@ private fun MetricsStep(
     height: String,
     onHeightChange: (String) -> Unit,
     message: String,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onBack: () -> Unit  // Added onBack parameter
 ) {
-    Card(
+    GlassCardStyle(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.95f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .heightIn(min = 420.dp, max = 600.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.2f),  // Adjusted transparency
+                            Color.White.copy(alpha = 0.05f)   // Adjusted transparency
+                        )
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.5f),
+                            Color.White.copy(alpha = 0.1f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Timeline,
-                    contentDescription = null,
-                    tint = SecondaryOrange,
-                    modifier = Modifier.size(24.dp)
+                // Add back button at the top
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Go back",
+                        tint = SecondaryOrange
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Timeline,
+                        contentDescription = null,
+                        tint = SecondaryOrange,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Your Fitness Metrics",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = TextLight,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                CustomOutlinedTextField(
+                    value = age,
+                    onValueChange = onAgeChange,
+                    label = "Age",
+                    leadingIcon = {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = SecondaryOrange)
+                    }
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Your Fitness Metrics",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextDark,
-                    fontWeight = FontWeight.Bold
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                CustomOutlinedTextField(
+                    value = weight,
+                    onValueChange = onWeightChange,
+                    label = "Weight (kg)",
+                    leadingIcon = {
+                        Icon(Icons.Default.MonitorWeight, contentDescription = null, tint = SecondaryOrange)
+                    }
                 )
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = age,
-                onValueChange = onAgeChange,
-                label = { Text("Age") },
-                leadingIcon = {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = SecondaryOrange)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SecondaryOrange,
-                    focusedLabelColor = SecondaryOrange,
-                    focusedLeadingIconColor = SecondaryOrange
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = weight,
-                onValueChange = onWeightChange,
-                label = { Text("Weight (kg)") },
-                leadingIcon = {
-                    Icon(Icons.Default.MonitorWeight, contentDescription = null, tint = SecondaryOrange)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SecondaryOrange,
-                    focusedLabelColor = SecondaryOrange,
-                    focusedLeadingIconColor = SecondaryOrange
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = height,
-                onValueChange = onHeightChange,
-                label = { Text("Height (cm)") },
-                leadingIcon = {
-                    Icon(Icons.Default.Straighten, contentDescription = null, tint = SecondaryOrange)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SecondaryOrange,
-                    focusedLabelColor = SecondaryOrange,
-                    focusedLeadingIconColor = SecondaryOrange
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (message.isNotEmpty()) {
-                Text(
-                    text = message,
-                    color = ErrorRed,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                CustomOutlinedTextField(
+                    value = height,
+                    onValueChange = onHeightChange,
+                    label = "Height (cm)",
+                    leadingIcon = {
+                        Icon(Icons.Default.Straighten, contentDescription = null, tint = SecondaryOrange)
+                    }
                 )
-            }
 
-            Button(
-                onClick = onNext,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SecondaryOrange
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "Continue",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (message.isNotEmpty()) {
+                    Text(
+                        text = message,
+                        color = ErrorRed,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SecondaryOrange
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "Continue",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -713,21 +845,29 @@ private fun AccountStep(
     onPasswordChange: (String) -> Unit,
     message: String,
     onSignUp: () -> Unit,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    onBack: () -> Unit  // Added onBack parameter
 ) {
-    Card(
+    GlassCardStyle(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.95f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .heightIn(min = 420.dp, max = 600.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
         ) {
+            // Add back button at the top
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Go back",
+                    tint = AccentBlue
+                )
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -742,48 +882,32 @@ private fun AccountStep(
                 Text(
                     text = "Create your account",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = TextDark,
+                    color = TextLight,
                     fontWeight = FontWeight.Bold
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            OutlinedTextField(
+            CustomOutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
-                label = { Text("Email Address") },
+                label = "Email Address",
                 leadingIcon = {
                     Icon(Icons.Default.Email, contentDescription = null, tint = AccentBlue)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentBlue,
-                    focusedLabelColor = AccentBlue,
-                    focusedLeadingIconColor = AccentBlue
-                ),
-                shape = RoundedCornerShape(12.dp)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
+            CustomOutlinedTextField(
                 value = password,
                 onValueChange = onPasswordChange,
-                label = { Text("Password") },
+                label = "Password",
                 leadingIcon = {
                     Icon(Icons.Default.Lock, contentDescription = null, tint = AccentBlue)
                 },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentBlue,
-                    focusedLabelColor = AccentBlue,
-                    focusedLeadingIconColor = AccentBlue
-                ),
-                shape = RoundedCornerShape(12.dp)
+                visualTransformation = PasswordVisualTransformation()
             )
 
             Spacer(modifier = Modifier.height(24.dp))
