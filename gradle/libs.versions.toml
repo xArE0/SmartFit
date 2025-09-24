@@ -1,5 +1,5 @@
 [versions]
-agp = "8.12.2"
+agp = "8.12.3"
 kotlin = "2.0.21"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -20,6 +20,16 @@ materialIconsExtended = "1.7.8"
 serialization = "1.7.3"
 composeNavigation = "2.8.0-beta02"
 navigationCompose = "2.9.3"
+
+# TensorFlow Lite and Camera dependencies
+tensorflowLite = "2.13.0"
+tensorflowLiteSupport = "0.4.3"
+tensorflowLiteGpu = "2.13.0"
+cameraX = "1.3.4"
+cameraXLifecycle = "1.3.4"
+cameraXView = "1.3.4"
+permission = "0.32.0"
+guava = "31.1-android"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,10 +58,25 @@ navigation-compose = { module = "androidx.navigation:navigation-compose", versio
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization"}
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
+# TensorFlow Lite dependencies
+tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tensorflowLite" }
+tensorflow-lite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version.ref = "tensorflowLiteSupport" }
+tensorflow-lite-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version.ref = "tensorflowLiteGpu" }
+
+# CameraX dependencies
+camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraX" }
+camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
+camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraXLifecycle" }
+camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraXView" }
+
+# Permission handling
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "permission" }
+
+# Guava for CameraX compatibility
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
-
-
