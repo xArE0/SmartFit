@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.utils.sure
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -47,6 +45,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Add this for TensorFlow Lite
+    aaptOptions {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {
@@ -79,4 +82,21 @@ dependencies {
 
     //More Icons
     implementation(libs.androidx.material.icons.extended)
+
+    // TensorFlow Lite dependencies for MoveNet
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.support)
+    implementation(libs.tensorflow.lite.gpu)
+
+    // CameraX dependencies
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+
+    // Permission handling
+    implementation(libs.accompanist.permissions)
+
+    // Guava for CameraX compatibility
+    implementation(libs.guava)
 }
