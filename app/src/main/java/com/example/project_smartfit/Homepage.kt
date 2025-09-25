@@ -1,8 +1,14 @@
 package com.example.project_smartfit
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.util.Log
+import android.util.Size
 import android.view.ViewGroup
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -27,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
@@ -38,8 +45,10 @@ import org.tensorflow.lite.support.common.FileUtil
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.min
 import kotlin.math.sqrt
 
 data class KeyPoint(
@@ -89,7 +98,7 @@ class PoseDetector(private val context: Context) {
             val model = FileUtil.loadMappedFile(context, MODEL_FILENAME)
             val options = Interpreter.Options().apply {
                 setNumThreads(4)
-                setUseNNAPI(true)
+                setUseNNAPI(false) // More stable
             }
 
             interpreter = Interpreter(model, options)
@@ -129,15 +138,17 @@ class PoseDetector(private val context: Context) {
             // Run inference
             interpreter?.run(processedImage.buffer, outputArray)
 
-            // Parse results
+            // Parse results - MoveNet outputs normalized coordinates [0,1]
             val keyPoints = mutableListOf<KeyPoint>()
-            val originalHeight = bitmap.height.toFloat()
-            val originalWidth = bitmap.width.toFloat()
 
             for (i in 0 until 17) {
-                val y = outputArray[0][0][i][0] * originalHeight
-                val x = outputArray[0][0][i][1] * originalWidth
+                val normalizedY = outputArray[0][0][i][0]
+                val normalizedX = outputArray[0][0][i][1]
                 val score = outputArray[0][0][i][2]
+
+                // Convert normalized coordinates to bitmap coordinates
+                val x = normalizedX * bitmap.width
+                val y = normalizedY * bitmap.height
 
                 keyPoints.add(KeyPoint(x, y, score))
             }
@@ -167,9 +178,10 @@ fun CameraScreen() {
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 
     var currentPerson by remember { mutableStateOf<Person?>(null) }
-    var previewSize by remember { mutableStateOf(Pair(0, 0)) }
+    var previewViewSize by remember { mutableStateOf(Pair(0, 0)) }
     var poseDetector by remember { mutableStateOf<PoseDetector?>(null) }
     var isModelLoaded by remember { mutableStateOf(false) }
+    var lastBitmapSize by remember { mutableStateOf(Pair(640, 480)) } // Default fallback
 
     // Initialize pose detector
     LaunchedEffect(Unit) {
@@ -189,6 +201,8 @@ fun CameraScreen() {
 
     if (cameraPermission.status.isGranted) {
         Box(modifier = Modifier.fillMaxSize()) {
+            var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+
             if (isModelLoaded) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -198,27 +212,49 @@ fun CameraScreen() {
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                            scaleType = PreviewView.ScaleType.FILL_START
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
                         }
                     },
                     update = { previewView ->
+                        previewViewRef = previewView
+                        previewViewSize = Pair(previewView.width, previewView.height)
                         startCamera(
                             context = context,
                             lifecycleOwner = lifecycleOwner,
                             previewView = previewView,
                             poseDetector = poseDetector,
-                            onPoseDetected = { person, width, height ->
+                            onPoseDetected = { person, bitmapWidth, bitmapHeight ->
                                 currentPerson = person
-                                previewSize = Pair(width, height)
+                                lastBitmapSize = Pair(bitmapWidth, bitmapHeight)
                             }
                         )
                     }
                 )
 
-                // Pose overlay
-                if (currentPerson != null && previewSize.first > 0 && previewSize.second > 0) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawPose(currentPerson!!, size.width, size.height, previewSize.first, previewSize.second)
+                // Overlay Canvas exactly on top of PreviewView
+                if (
+                    currentPerson != null &&
+                    previewViewRef != null &&
+                    previewViewRef!!.width > 0 &&
+                    previewViewRef!!.height > 0
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .zIndex(1f)
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .matchParentSize()
+                        ) {
+                            drawPose(
+                                person = currentPerson!!,
+                                canvasWidth = size.width,
+                                canvasHeight = size.height,
+                                bitmapWidth = lastBitmapSize.first,
+                                bitmapHeight = lastBitmapSize.second
+                            )
+                        }
                     }
                 }
 
@@ -269,7 +305,7 @@ private fun startCamera(
     lifecycleOwner: LifecycleOwner,
     previewView: PreviewView,
     poseDetector: PoseDetector?,
-    onPoseDetected: (Person?, Int, Int) -> Unit
+    onPoseDetected: (Person?, Int, Int) -> Unit // Add bitmap size
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     val executor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -286,13 +322,17 @@ private fun startCamera(
             .build()
             .also { analysis ->
                 analysis.setAnalyzer(executor) { imageProxy ->
-                    poseDetector?.let { detector ->
-                        val bitmap = imageProxy.toBitmap()
-                        val person = detector.detectPose(bitmap)
-
-                        onPoseDetected(person, bitmap.width, bitmap.height)
+                    try {
+                        poseDetector?.let { detector ->
+                            val bitmap = imageProxyToBitmap(imageProxy)
+                            val person = detector.detectPose(bitmap)
+                            onPoseDetected(person, bitmap.width, bitmap.height)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CameraX", "Error processing frame", e)
+                    } finally {
+                        imageProxy.close()
                     }
-                    imageProxy.close()
                 }
             }
 
@@ -312,70 +352,123 @@ private fun startCamera(
     }, ContextCompat.getMainExecutor(context))
 }
 
-// Extension function to convert ImageProxy to Bitmap
-private fun ImageProxy.toBitmap(): Bitmap {
-    val buffer = planes[0].buffer
-    val bytes = ByteArray(buffer.remaining())
-    buffer.get(bytes)
-    return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+// Simple ImageProxy to Bitmap conversion
+private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap {
+    val yBuffer = imageProxy.planes[0].buffer
+    val uBuffer = imageProxy.planes[1].buffer
+    val vBuffer = imageProxy.planes[2].buffer
+
+    val ySize = yBuffer.remaining()
+    val uSize = uBuffer.remaining()
+    val vSize = vBuffer.remaining()
+
+    val nv21 = ByteArray(ySize + uSize + vSize)
+
+    // U and V are swapped for NV21 format
+    yBuffer.get(nv21, 0, ySize)
+    vBuffer.get(nv21, ySize, vSize)
+    uBuffer.get(nv21, ySize + vSize, uSize)
+
+    val yuvImage = YuvImage(
+        nv21,
+        ImageFormat.NV21,
+        imageProxy.width,
+        imageProxy.height,
+        null
+    )
+
+    val out = ByteArrayOutputStream()
+    yuvImage.compressToJpeg(Rect(0, 0, imageProxy.width, imageProxy.height), 100, out)
+    val imageBytes = out.toByteArray()
+    var bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+
+    // Apply rotation and mirroring for front camera
+    val matrix = Matrix().apply {
+        postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+        // Mirror for front camera
+        postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
+    }
+
+    return android.graphics.Bitmap.createBitmap(
+        bitmap,
+        0,
+        0,
+        bitmap.width,
+        bitmap.height,
+        matrix,
+        true
+    )
 }
 
+@SuppressLint("DefaultLocale")
 private fun DrawScope.drawPose(
     person: Person,
     canvasWidth: Float,
     canvasHeight: Float,
-    imageWidth: Int,
-    imageHeight: Int
+    bitmapWidth: Int,
+    bitmapHeight: Int
 ) {
-    val scaleX = canvasWidth / imageWidth
-    val scaleY = canvasHeight / imageHeight
+    val pointRadius = 12f
+    val connectionStrokeWidth = 6f
 
-    // Draw keypoints
-    person.keyPoints.forEachIndexed { index, keyPoint ->
-        if (keyPoint.score > 0.3) {
-            val x = keyPoint.x * scaleX
-            val y = keyPoint.y * scaleY
-
-            drawCircle(
-                color = Color.Red,
-                radius = 8f,
-                center = androidx.compose.ui.geometry.Offset(x, y)
-            )
-
-            // Draw keypoint labels
-            drawContext.canvas.nativeCanvas.apply {
-                drawText(
-                    PoseDetector.keyPointNames[index],
-                    x + 10f,
-                    y - 10f,
-                    android.graphics.Paint().apply {
-                        color = android.graphics.Color.WHITE
-                        textSize = 24f
-                        isAntiAlias = true
-                    }
-                )
-            }
-        }
-    }
-
-    // Draw skeleton connections
+    // Draw skeleton connections first (behind keypoints)
     PoseDetector.bodyConnections.forEach { connection ->
         val startKeyPoint = person.keyPoints[connection.first]
         val endKeyPoint = person.keyPoints[connection.second]
 
         if (startKeyPoint.score > 0.3 && endKeyPoint.score > 0.3) {
-            val startX = startKeyPoint.x * scaleX
-            val startY = startKeyPoint.y * scaleY
-            val endX = endKeyPoint.x * scaleX
-            val endY = endKeyPoint.y * scaleY
+            // Scale keypoints to canvas size using actual bitmap size
+            val startX = (startKeyPoint.x / bitmapWidth) * canvasWidth
+            val startY = (startKeyPoint.y / bitmapHeight) * canvasHeight
+            val endX = (endKeyPoint.x / bitmapWidth) * canvasWidth
+            val endY = (endKeyPoint.y / bitmapHeight) * canvasHeight
 
             drawLine(
                 color = Color.Green,
                 start = androidx.compose.ui.geometry.Offset(startX, startY),
                 end = androidx.compose.ui.geometry.Offset(endX, endY),
-                strokeWidth = 4f
+                strokeWidth = connectionStrokeWidth
             )
+        }
+    }
+
+    // Draw keypoints on top
+    person.keyPoints.forEachIndexed { index, keyPoint ->
+        if (keyPoint.score > 0.3) {
+            // Scale keypoints to canvas size using actual bitmap size
+            val x = (keyPoint.x / bitmapWidth) * canvasWidth
+            val y = (keyPoint.y / bitmapHeight) * canvasHeight
+
+            var color = when (index) {
+                0, 1, 2, 3, 4 -> Color.Red // Head
+                5, 6, 7, 8, 9, 10 -> Color.Blue // Arms
+                11, 12 -> Color.Magenta // Hips
+                13, 14, 15, 16 -> Color.Cyan // Legs
+                else -> Color.White
+            }
+
+            drawCircle(
+                color = color,
+                radius = pointRadius,
+                center = androidx.compose.ui.geometry.Offset(x, y)
+            )
+
+            // Draw confidence score
+            if (keyPoint.score > 0.5) {
+                drawContext.canvas.nativeCanvas.apply {
+                    drawText(
+                        String.format("%.2f", keyPoint.score),
+                        x + pointRadius + 5f,
+                        y - pointRadius,
+                        android.graphics.Paint().apply {
+                            color = Color.DarkGray
+                            textSize = 24f
+                            isAntiAlias = true
+                            setShadowLayer(2f, 1f, 1f, android.graphics.Color.BLACK)
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -387,9 +480,9 @@ private fun PoseStatistics(
 ) {
     Card(
         modifier = modifier
-            .width(200.dp)
+            .width(220.dp)
             .clip(RoundedCornerShape(8.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f))
+        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.8f))
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -398,7 +491,7 @@ private fun PoseStatistics(
             Text(
                 text = "Pose Statistics",
                 color = Color.White,
-                fontSize = 14.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
 
@@ -409,23 +502,31 @@ private fun PoseStatistics(
                     fontSize = 12.sp
                 )
 
+                val highConfidenceKeypoints = person.keyPoints.count { it.score > 0.5 }
                 val visibleKeypoints = person.keyPoints.count { it.score > 0.3 }
+
                 Text(
-                    text = "Visible Keypoints: $visibleKeypoints/17",
+                    text = "High Confidence: $highConfidenceKeypoints/17",
+                    color = Color.White,
+                    fontSize = 12.sp
+                )
+
+                Text(
+                    text = "Visible: $visibleKeypoints/17",
                     color = Color.White,
                     fontSize = 12.sp
                 )
 
                 // Calculate pose quality
                 val poseQuality = when {
-                    person.score > 0.7 -> "Excellent"
-                    person.score > 0.5 -> "Good"
-                    person.score > 0.3 -> "Fair"
+                    person.score > 0.8 -> "Excellent"
+                    person.score > 0.6 -> "Good"
+                    person.score > 0.4 -> "Fair"
                     else -> "Poor"
                 }
 
                 Text(
-                    text = "Pose Quality: $poseQuality",
+                    text = "Quality: $poseQuality",
                     color = when (poseQuality) {
                         "Excellent" -> Color.Green
                         "Good" -> Color.Yellow
@@ -436,26 +537,22 @@ private fun PoseStatistics(
                     fontWeight = FontWeight.Bold
                 )
 
-                // Basic pose analysis
-                person.keyPoints.let { keyPoints ->
-                    val leftShoulder = keyPoints[5]
-                    val rightShoulder = keyPoints[6]
-                    val leftHip = keyPoints[11]
-                    val rightHip = keyPoints[12]
+                // Body part detection status
+                val bodyParts = mapOf(
+                    "Head" to person.keyPoints.subList(0, 5).any { it.score > 0.3 },
+                    "Arms" to person.keyPoints.subList(5, 11).any { it.score > 0.3 },
+                    "Torso" to person.keyPoints.subList(5, 13).any { it.score > 0.3 },
+                    "Legs" to person.keyPoints.subList(13, 17).any { it.score > 0.3 }
+                )
 
-                    if (leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
-                        val shoulderDistance = sqrt(
-                            (leftShoulder.x - rightShoulder.x) * (leftShoulder.x - rightShoulder.x) +
-                                    (leftShoulder.y - rightShoulder.y) * (leftShoulder.y - rightShoulder.y)
-                        )
-
-                        Text(
-                            text = "Shoulder Width: ${String.format("%.0f", shoulderDistance)}px",
-                            color = Color.White,
-                            fontSize = 12.sp
-                        )
-                    }
+                bodyParts.forEach { (part, detected) ->
+                    Text(
+                        text = "$part: ${if (detected) "✓" else "✗"}",
+                        color = if (detected) Color.Green else Color.Red,
+                        fontSize = 11.sp
+                    )
                 }
+
             } else {
                 Text(
                     text = "No pose detected",
