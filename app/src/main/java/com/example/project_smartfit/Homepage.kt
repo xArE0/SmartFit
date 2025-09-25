@@ -8,19 +8,47 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
-import android.util.Size
 import android.view.ViewGroup
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,7 +56,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,8 +75,6 @@ import org.tensorflow.lite.support.image.ops.ResizeOp
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.math.min
-import kotlin.math.sqrt
 
 data class KeyPoint(
     val x: Float,
@@ -173,15 +198,23 @@ class PoseDetector(private val context: Context) {
 @Composable
 fun CameraScreen() {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 
     var currentPerson by remember { mutableStateOf<Person?>(null) }
-    var previewViewSize by remember { mutableStateOf(Pair(0, 0)) }
     var poseDetector by remember { mutableStateOf<PoseDetector?>(null) }
     var isModelLoaded by remember { mutableStateOf(false) }
     var lastBitmapSize by remember { mutableStateOf(Pair(640, 480)) } // Default fallback
+
+    // FPS tracking
+    var frameCount by remember { mutableIntStateOf(0) }
+    var lastFpsTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var fps by remember { mutableIntStateOf(0) }
+
+    // Timer for elapsed time
+    var startTime by remember { mutableStateOf<Long?>(null) }
+    var elapsedTime by remember { mutableLongStateOf(0L) }
 
     // Initialize pose detector
     LaunchedEffect(Unit) {
@@ -196,6 +229,17 @@ fun CameraScreen() {
     DisposableEffect(Unit) {
         onDispose {
             poseDetector?.close()
+        }
+    }
+
+    // Timer update
+    LaunchedEffect(currentPerson) {
+        if (currentPerson != null) {
+            if (startTime == null) startTime = System.currentTimeMillis()
+            elapsedTime = System.currentTimeMillis() - (startTime ?: System.currentTimeMillis())
+        } else {
+            startTime = null
+            elapsedTime = 0L
         }
     }
 
@@ -217,7 +261,6 @@ fun CameraScreen() {
                     },
                     update = { previewView ->
                         previewViewRef = previewView
-                        previewViewSize = Pair(previewView.width, previewView.height)
                         startCamera(
                             context = context,
                             lifecycleOwner = lifecycleOwner,
@@ -226,6 +269,15 @@ fun CameraScreen() {
                             onPoseDetected = { person, bitmapWidth, bitmapHeight ->
                                 currentPerson = person
                                 lastBitmapSize = Pair(bitmapWidth, bitmapHeight)
+
+                                // FPS calculation
+                                frameCount++
+                                val now = System.currentTimeMillis()
+                                if (now - lastFpsTimestamp > 1000) {
+                                    fps = frameCount
+                                    frameCount = 0
+                                    lastFpsTimestamp = now
+                                }
                             }
                         )
                     }
@@ -258,9 +310,11 @@ fun CameraScreen() {
                     }
                 }
 
-                // Statistics overlay
+                // Statistics overlay with FPS and elapsed time
                 PoseStatistics(
                     person = currentPerson,
+                    fps = fps,
+                    elapsedTimeMs = elapsedTime,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
@@ -301,7 +355,7 @@ fun CameraScreen() {
 }
 
 private fun startCamera(
-    context: android.content.Context,
+    context: Context,
     lifecycleOwner: LifecycleOwner,
     previewView: PreviewView,
     poseDetector: PoseDetector?,
@@ -380,7 +434,7 @@ private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap {
     val out = ByteArrayOutputStream()
     yuvImage.compressToJpeg(Rect(0, 0, imageProxy.width, imageProxy.height), 100, out)
     val imageBytes = out.toByteArray()
-    var bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+    val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
 
     // Apply rotation and mirroring for front camera
     val matrix = Matrix().apply {
@@ -389,7 +443,7 @@ private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap {
         postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
     }
 
-    return android.graphics.Bitmap.createBitmap(
+    return Bitmap.createBitmap(
         bitmap,
         0,
         0,
@@ -439,7 +493,7 @@ private fun DrawScope.drawPose(
             val x = (keyPoint.x / bitmapWidth) * canvasWidth
             val y = (keyPoint.y / bitmapHeight) * canvasHeight
 
-            var color = when (index) {
+            val color = when (index) {
                 0, 1, 2, 3, 4 -> Color.Red // Head
                 5, 6, 7, 8, 9, 10 -> Color.Blue // Arms
                 11, 12 -> Color.Magenta // Hips
@@ -461,7 +515,6 @@ private fun DrawScope.drawPose(
                         x + pointRadius + 5f,
                         y - pointRadius,
                         android.graphics.Paint().apply {
-                            color = Color.DarkGray
                             textSize = 24f
                             isAntiAlias = true
                             setShadowLayer(2f, 1f, 1f, android.graphics.Color.BLACK)
@@ -473,89 +526,65 @@ private fun DrawScope.drawPose(
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 private fun PoseStatistics(
     person: Person?,
-    modifier: Modifier = Modifier
+    fps: Int = 0,
+    elapsedTimeMs: Long = 0L,
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
-    Card(
+    Box(
         modifier = modifier
-            .width(220.dp)
-            .clip(RoundedCornerShape(8.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.8f))
+            .width(160.dp)
+            .padding(4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.18f))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = "Pose Statistics",
-                color = Color.White,
-                fontSize = 16.sp,
+                text = "FPS: $fps | ${elapsedTimeMs / 1000}s",
+                color = Color.Yellow,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
-
             if (person != null) {
                 Text(
-                    text = "Overall Score: ${String.format("%.2f", person.score)}",
+                    text = "Score: ${String.format("%.2f", person.score)}",
                     color = Color.White,
                     fontSize = 12.sp
                 )
-
                 val highConfidenceKeypoints = person.keyPoints.count { it.score > 0.5 }
                 val visibleKeypoints = person.keyPoints.count { it.score > 0.3 }
-
                 Text(
-                    text = "High Confidence: $highConfidenceKeypoints/17",
+                    text = "High: $highConfidenceKeypoints  Vis: $visibleKeypoints",
                     color = Color.White,
                     fontSize = 12.sp
                 )
-
+                val avgConfidence = person.keyPoints.map { it.score }.average()
+                val minConfidence = person.keyPoints.minByOrNull { it.score }
+                val maxConfidence = person.keyPoints.maxByOrNull { it.score }
                 Text(
-                    text = "Visible: $visibleKeypoints/17",
-                    color = Color.White,
-                    fontSize = 12.sp
+                    text = "Avg: ${String.format("%.2f", avgConfidence)}",
+                    color = Color.LightGray,
+                    fontSize = 11.sp
                 )
-
-                // Calculate pose quality
-                val poseQuality = when {
-                    person.score > 0.8 -> "Excellent"
-                    person.score > 0.6 -> "Good"
-                    person.score > 0.4 -> "Fair"
-                    else -> "Poor"
-                }
-
                 Text(
-                    text = "Quality: $poseQuality",
-                    color = when (poseQuality) {
-                        "Excellent" -> Color.Green
-                        "Good" -> Color.Yellow
-                        "Fair" -> Color.Magenta
-                        else -> Color.Red
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "Min: ${String.format("%.2f", minConfidence?.score ?: 0f)}",
+                    color = Color.Red,
+                    fontSize = 11.sp
                 )
-
-                // Body part detection status
-                val bodyParts = mapOf(
-                    "Head" to person.keyPoints.subList(0, 5).any { it.score > 0.3 },
-                    "Arms" to person.keyPoints.subList(5, 11).any { it.score > 0.3 },
-                    "Torso" to person.keyPoints.subList(5, 13).any { it.score > 0.3 },
-                    "Legs" to person.keyPoints.subList(13, 17).any { it.score > 0.3 }
+                Text(
+                    text = "Max: ${String.format("%.2f", maxConfidence?.score ?: 0f)}",
+                    color = Color.Green,
+                    fontSize = 11.sp
                 )
-
-                bodyParts.forEach { (part, detected) ->
-                    Text(
-                        text = "$part: ${if (detected) "✓" else "✗"}",
-                        color = if (detected) Color.Green else Color.Red,
-                        fontSize = 11.sp
-                    )
-                }
-
             } else {
                 Text(
-                    text = "No pose detected",
+                    text = "No pose",
                     color = Color.Red,
                     fontSize = 12.sp
                 )
