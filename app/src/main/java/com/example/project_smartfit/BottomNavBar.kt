@@ -24,7 +24,7 @@ data class BottomNavItem(
 fun BottomNavBar(navController: NavController) {
     val items = listOf(
         BottomNavItem("Home", Icons.Default.Home, NavHomepage),
-        BottomNavItem("Profile", Icons.Default.Person, NavProfile)
+        BottomNavItem("Profile", Icons.Default.Person, NavExample)
     )
 
     val navBackStackEntry = navController.currentBackStackEntryAsState()

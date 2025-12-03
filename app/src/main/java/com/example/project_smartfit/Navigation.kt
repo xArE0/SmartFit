@@ -32,6 +32,10 @@ fun Navigation() {
         composable<NavSignup> {
             Signup(navController)
         }
+
+        composable<NavExample> {
+            WorkoutMonitoringPage(navController)
+        }
     }
 }
 
@@ -46,3 +50,6 @@ object NavLogin
 
 @Serializable
 object NavSignup
+
+@Serializable
+object NavExample

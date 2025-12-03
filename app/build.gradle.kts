@@ -50,6 +50,14 @@ android {
     aaptOptions {
         noCompress += "tflite"
     }
+
+    // Replace deprecated 'packagingOptions' with the new 'packaging' DSL.
+    packaging {
+        jniLibs {
+            // Use non-legacy packaging so native libraries' LOAD segments are 16KB-aligned
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
