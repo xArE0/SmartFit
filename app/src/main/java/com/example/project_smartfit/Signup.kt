@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,18 +58,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -115,55 +111,55 @@ fun Signup(navController: NavController) {
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // ---------- BACKGROUND (bottom layer) ----------
+        // Crossfade animation
         Crossfade(
             targetState = step,
             animationSpec = tween(
-                durationMillis = 800,
-                easing = LinearEasing
+                durationMillis = 800,  // Increase duration for smoother transition
+                easing = LinearEasing  // Use linear easing for smoother crossfade
             ),
+            modifier = Modifier.zIndex(0f),
             label = "background"
         ) { currentStep ->
-            // Place the image as a strictly bottom layer, matchParentSize and low-level zIndex
-            Image(
-                painter = painterResource(
-                    id = when (currentStep) {
-                        0 -> R.drawable.bg1
-                        1 -> R.drawable.bg2
-                        2 -> R.drawable.bg3
-                        3 -> R.drawable.bg4
-                        else -> R.drawable.bg
-                    }
-                ),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
-                    .matchParentSize()
-                    .zIndex(0f)
-                    .alpha(1f)
-                    // ensure it doesn't accidentally capture gestures
-                    .pointerInput(Unit) {}
-            )
+                    .fillMaxSize()
+                    .background(Color.Black)  // Ensure black background during transition
+            ) {
+                Image(
+                    painter = painterResource(
+                        id = when (currentStep) {
+                            0 -> R.drawable.bg1
+                            1 -> R.drawable.bg2
+                            2 -> R.drawable.bg3
+                            3 -> R.drawable.bg4
+                            else -> R.drawable.bg
+                        }
+                    ),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
-        // ---------- GRADIENT OVERLAY (middle layer) ----------
+        // 2. Gradient overlay for better readability (middle layer)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.25f),
-                            Color.Black.copy(alpha = 0.45f),
-                            Color.Black.copy(alpha = 0.25f)
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Black.copy(alpha = 0.5f),
+                            Color.Black.copy(alpha = 0.3f)
                         )
                     )
                 )
                 .zIndex(1f)
         )
 
-        // ---------- MAIN CONTENT (top layer) ----------
-        // Use a centered Box to naturally occupy most central space; Column kept for top padding only
+        // 3. Main content (highest layer)
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -172,161 +168,131 @@ fun Signup(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            // keep some top spacing for system bar etc.
-            Spacer(modifier = Modifier.height(6.dp))
+            // Progress indicator always at the top
+            if (step > 0) {
+                ProgressIndicator(currentStep = step, totalSteps = 3)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
-            // The island should occupy the central area naturally. Use weight to center and stretch.
+            // Center the island in the remaining space
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = true),
                 contentAlignment = Alignment.Center
             ) {
-                // Island Card: larger min-height, more translucent, high zIndex so it is visually in front
-                GlassCardStyle(
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .heightIn(min = 480.dp, max = 760.dp)
-                        .zIndex(4f)
-                ) {
-                    // Place the step indicator overlapping the top edge of the island
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        // progress bar slightly overlapping at the top center of the island
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .offset(y = (-18).dp) // overlap island top a bit
-                        ) {
-                            ProgressIndicator(
-                                currentStep = if (step == 0) 0 else step, // preserve existing semantics
-                                totalSteps = 3
-                            )
-                        }
-
-                        // content area inside the island (padding accounts for the overlapping indicator)
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 36.dp, start = 24.dp, end = 24.dp, bottom = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Top
-                        ) {
-                            // Keep existing per-step UI but remove external ProgressIndicator usage
-                            when (step) {
-                                0 -> WelcomeStep(
-                                    onNext = { step = 1 },
-                                    onLoginClick = { navController.navigate(NavLogin) }
-                                )
-                                1 -> PersonalInfoStep(
-                                    name = name,
-                                    onNameChange = { name = it },
-                                    gender = gender,
-                                    onGenderChange = { gender = it },
-                                    fitnessLevel = fitnessLevel,
-                                    onFitnessLevelChange = { fitnessLevel = it },
-                                    genders = genders,
-                                    fitnessLevels = fitnessLevels,
-                                    message = message,
-                                    onNext = {
-                                        if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank()) {
-                                            step = 2
-                                            message = ""
-                                        } else {
-                                            message = "Please fill all fields"
-                                        }
-                                    },
-                                    onBack = { if (step > 0) step-- }
-                                )
-                                2 -> MetricsStep(
-                                    age = age,
-                                    onAgeChange = { age = it.filter { c -> c.isDigit() } },
-                                    weight = weight,
-                                    onWeightChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
-                                    height = height,
-                                    onHeightChange = { height = it.filter { c -> c.isDigit() || c == '.' } },
-                                    message = message,
-                                    onNext = {
-                                        if (age.isNotBlank() && weight.isNotBlank() && height.isNotBlank()) {
-                                            if (!ValidationUtils.isValidAge(age)) {
-                                                message = "Please enter a valid age (5-120)"
-                                                return@MetricsStep
-                                            }
-                                            if (!ValidationUtils.isValidWeight(weight)) {
-                                                message = "Please enter a realistic weight (20-400 kg)"
-                                                return@MetricsStep
-                                            }
-                                            if (!ValidationUtils.isValidHeight(height)) {
-                                                message = "Please enter a realistic height (50-250 cm)"
-                                                return@MetricsStep
-                                            }
-                                            step = 3
-                                            message = ""
-                                        } else {
-                                            message = "Please fill all fields"
-                                        }
-                                    },
-                                    onBack = { if (step > 1) step-- }
-                                )
-                                3 -> AccountStep(
-                                    email = email,
-                                    onEmailChange = { email = it },
-                                    password = password,
-                                    onPasswordChange = { password = it },
-                                    message = message,
-                                    onSignUp = {
-                                        if (email.isNotBlank() && password.isNotBlank()) {
-                                            if (!ValidationUtils.isValidEmail(email)) {
-                                                message = "Please enter a valid email"
-                                                return@AccountStep
-                                            }
-                                            if (!ValidationUtils.isStrongPassword(password)) {
-                                                message = "Password must be at least 8 characters, include upper and lower case, a digit, and a special character"
-                                                return@AccountStep
-                                            }
-                                            val userId = UUID.randomUUID().toString()
-                                            val user = hashMapOf(
-                                                "userId" to userId,
-                                                "email" to email,
-                                                "password" to password
-                                            )
-                                            val metrics = hashMapOf(
-                                                "userId" to userId,
-                                                "name" to name,
-                                                "gender" to gender,
-                                                "fitnessLevel" to fitnessLevel,
-                                                "age" to age,
-                                                "weight" to weight,
-                                                "height" to height
-                                            )
-                                            val db = FirebaseFirestore.getInstance()
-                                            db.collection("UserAuth")
-                                                .document(userId)
-                                                .set(user)
-                                                .addOnSuccessListener {
-                                                    db.collection("UserMetrics")
-                                                        .document(userId)
-                                                        .set(metrics)
-                                                        .addOnSuccessListener {
-                                                            message = "Account created successfully!"
-                                                            navController.navigate(NavLogin)
-                                                        }
-                                                        .addOnFailureListener {
-                                                            message = "Failed to save metrics: ${it.message}"
-                                                        }
-                                                }
-                                                .addOnFailureListener {
-                                                    message = "Signup failed: ${it.message}"
-                                                }
-                                        } else {
-                                            message = "Please enter email and password"
-                                        }
-                                    },
-                                    onLoginClick = { navController.navigate(NavLogin) },
-                                    onBack = { if (step > 2) step-- }
-                                )
+                when (step) {
+                    0 -> WelcomeStep(
+                        onNext = { step = 1 },
+                        onLoginClick = { navController.navigate(NavLogin) }
+                    )
+                    1 -> PersonalInfoStep(
+                        name = name,
+                        onNameChange = { name = it },
+                        gender = gender,
+                        onGenderChange = { gender = it },
+                        fitnessLevel = fitnessLevel,
+                        onFitnessLevelChange = { fitnessLevel = it },
+                        genders = genders,
+                        fitnessLevels = fitnessLevels,
+                        message = message,
+                        onNext = {
+                            if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank()) {
+                                step = 2
+                                message = ""
+                            } else {
+                                message = "Please fill all fields"
                             }
-                        }
-                    }
+                        },
+                        onBack = { if (step > 0) step-- }
+                    )
+                    2 -> MetricsStep(
+                        age = age,
+                        onAgeChange = { age = it.filter { c -> c.isDigit() } },
+                        weight = weight,
+                        onWeightChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
+                        height = height,
+                        onHeightChange = { height = it.filter { c -> c.isDigit() || c == '.' } },
+                        message = message,
+                        onNext = {
+                            if (age.isNotBlank() && weight.isNotBlank() && height.isNotBlank()) {
+                                if (!ValidationUtils.isValidAge(age)) {
+                                    message = "Please enter a valid age (5-120)"
+                                    return@MetricsStep
+                                }
+                                if (!ValidationUtils.isValidWeight(weight)) {
+                                    message = "Please enter a realistic weight (20-400 kg)"
+                                    return@MetricsStep
+                                }
+                                if (!ValidationUtils.isValidHeight(height)) {
+                                    message = "Please enter a realistic height (50-250 cm)"
+                                    return@MetricsStep
+                                }
+                                step = 3
+                                message = ""
+                            } else {
+                                message = "Please fill all fields"
+                            }
+                        },
+                        onBack = { if (step > 1) step-- }
+                    )
+                    3 -> AccountStep(
+                        email = email,
+                        onEmailChange = { email = it },
+                        password = password,
+                        onPasswordChange = { password = it },
+                        message = message,
+                        onSignUp = {
+                            if (email.isNotBlank() && password.isNotBlank()) {
+                                if (!ValidationUtils.isValidEmail(email)) {
+                                    message = "Please enter a valid email"
+                                    return@AccountStep
+                                }
+                                if (!ValidationUtils.isStrongPassword(password)) {
+                                    message = "Password must be at least 8 characters, include upper and lower case, a digit, and a special character"
+                                    return@AccountStep
+                                }
+                                val userId = UUID.randomUUID().toString()
+                                val user = hashMapOf(
+                                    "userId" to userId,
+                                    "email" to email,
+                                    "password" to password
+                                )
+                                val metrics = hashMapOf(
+                                    "userId" to userId,
+                                    "name" to name,
+                                    "gender" to gender,
+                                    "fitnessLevel" to fitnessLevel,
+                                    "age" to age,
+                                    "weight" to weight,
+                                    "height" to height
+                                )
+                                val db = FirebaseFirestore.getInstance()
+                                db.collection("UserAuth")
+                                    .document(userId)
+                                    .set(user)
+                                    .addOnSuccessListener {
+                                        db.collection("UserMetrics")
+                                            .document(userId)
+                                            .set(metrics)
+                                            .addOnSuccessListener {
+                                                message = "Account created successfully!"
+                                                navController.navigate(NavLogin)
+                                            }
+                                            .addOnFailureListener {
+                                                message = "Failed to save metrics: ${it.message}"
+                                            }
+                                    }
+                                    .addOnFailureListener {
+                                        message = "Signup failed: ${it.message}"
+                                    }
+                            } else {
+                                message = "Please enter email and password"
+                            }
+                        },
+                        onLoginClick = { navController.navigate(NavLogin) },
+                        onBack = { if (step > 2) step-- }
+                    )
                 }
             }
         }
