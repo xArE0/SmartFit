@@ -139,6 +139,7 @@ object PoseVisualization {
     /**
      * Draw confidence scores above keypoints
      */
+    @SuppressLint("DefaultLocale")
     private fun DrawScope.drawConfidenceText(
         person: Person,
         canvasWidth: Float,
@@ -281,7 +282,7 @@ fun PoseStatistics(
     fps: Int = 0,
     elapsedTimeMs: Long = 0L,
     postureFeatures: PostureFeatures? = null,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
