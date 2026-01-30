@@ -1,65 +1,40 @@
 package com.example.project_smartfit.presentation.screens.auth.login
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
-import com.google.firebase.firestore.FirebaseFirestore
 import com.example.project_smartfit.R
 import com.example.project_smartfit.data.local.SessionManager
 import com.example.project_smartfit.domain.util.ValidationUtils
+import com.example.project_smartfit.presentation.components.*
 import com.example.project_smartfit.presentation.navigation.NavHome
 import com.example.project_smartfit.presentation.navigation.NavLogin
 import com.example.project_smartfit.presentation.navigation.NavSignup
-
-private val PrimaryBlue = Color(0xFF60A5FA)
-private val TextLight = Color.White
-private val TextSecondary = Color.White.copy(alpha = 0.7f)
+import com.example.project_smartfit.presentation.theme.*
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 
 @Composable
 fun LoginScreen(
@@ -71,257 +46,239 @@ fun LoginScreen(
     var message by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    var isBackgroundVisible by remember { mutableStateOf(false) }
+    // Entrance animations
+    val logoAlpha = remember { Animatable(0f) }
+    val formAlpha = remember { Animatable(0f) }
+    val buttonsAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        // Clear any existing session on login screen
         sessionManager.clearSession()
-        isBackgroundVisible = true
+        logoAlpha.animateTo(1f, animationSpec = tween(600))
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
+    LaunchedEffect(Unit) {
+        delay(200)
+        formAlpha.animateTo(1f, animationSpec = tween(600))
+    }
+
+    LaunchedEffect(Unit) {
+        delay(400)
+        buttonsAlpha.animateTo(1f, animationSpec = tween(600))
+    }
+
+    // Floating animation for logo
+    val infiniteTransition = rememberInfiniteTransition(label = "float")
+    val floatOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "logo_float"
+    )
+
+    LightAuroraBackground(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Crossfade(
-            targetState = isBackgroundVisible,
-            animationSpec = tween(1000, easing = LinearEasing),
-            modifier = Modifier.zIndex(0f),
-            label = "background"
-        ) { visible ->
-            if (visible) {
-                Image(
-                    painter = painterResource(id = R.drawable.bg1),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(35.dp))
+
+            // Logo section
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .alpha(logoAlpha.value)
+                    .offset(y = floatOffset.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    // Glow effect
+                    Box(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        GovGreen.copy(alpha = 0.3f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                    
+                    // Logo (copied from SubsidyGuard)
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "SmartFit Logo",
+                        modifier = Modifier.size(150.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "SmartFit",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate900
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "AI-Powered Posture Training",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate500,
+                    textAlign = TextAlign.Center
                 )
             }
-        }
 
-        // Gradient overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.3f),
-                            Color.Black.copy(alpha = 0.5f),
-                            Color.Black.copy(alpha = 0.3f)
-                        )
-                    )
-                )
-                .zIndex(1f)
-        )
+            Spacer(modifier = Modifier.height(40.dp))
 
-        // Main content
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .zIndex(2f),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .heightIn(min = 420.dp, max = 600.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.1f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            // Login card
+            GlassCard(
+                variant = GlassCardVariant.Light,
+                borderGradient = true,
+                animateEntrance = true,
+                entranceDelay = 200,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.2f),
-                                    Color.White.copy(alpha = 0.05f)
-                                )
-                            )
-                        )
-                        .border(
-                            width = 1.dp,
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.5f),
-                                    Color.White.copy(alpha = 0.1f)
-                                )
-                            ),
-                            shape = RoundedCornerShape(24.dp)
-                        )
+                Column(
+                    modifier = Modifier.alpha(formAlpha.value)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            tint = PrimaryBlue,
-                            modifier = Modifier.size(72.dp)
-                        )
+                    Text(
+                        text = "Welcome Back",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Slate900
+                    )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    SGTextField(
+                        value = email,
+                        onValueChange = { 
+                            email = it.trim()
+                            message = "" 
+                        },
+                        label = "Email",
+                        placeholder = "Enter your email",
+                        leadingIcon = Icons.Default.Email,
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next,
+                        isError = message.contains("email", ignoreCase = true),
+                        enabled = !isLoading
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    SGTextField(
+                        value = password,
+                        onValueChange = { 
+                            password = it
+                            message = ""
+                        },
+                        label = "Password",
+                        placeholder = "Enter your password",
+                        leadingIcon = Icons.Default.Lock,
+                        isPassword = true,
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                        onImeAction = { /* Trigger login */ },
+                        isError = message.contains("password", ignoreCase = true),
+                        enabled = !isLoading
+                    )
+
+                    if (message.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Welcome Back",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = TextLight,
-                            fontWeight = FontWeight.Bold
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ErrorRed,
+                            modifier = Modifier.padding(start = 4.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        // Email field
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = {
-                                email = it.trim()
-                                message = ""
-                            },
-                            label = { Text("Email", color = TextSecondary) },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Email,
-                                    contentDescription = null,
-                                    tint = PrimaryBlue
-                                )
-                            },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.White,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                                focusedLabelColor = Color.White,
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = Color.White
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Password field
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = {
-                                password = it
-                                message = ""
-                            },
-                            label = { Text("Password", color = TextSecondary) },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = PrimaryBlue
-                                )
-                            },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.White,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                                focusedLabelColor = Color.White,
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = Color.White
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        if (message.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = message,
-                                color = Color(0xFFFF5757),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        Button(
-                            onClick = {
-                                if (!ValidationUtils.isValidEmail(email)) {
-                                    message = "Please enter a valid email"
-                                    return@Button
-                                }
-                                isLoading = true
-                                FirebaseFirestore.getInstance()
-                                    .collection("UserAuth")
-                                    .whereEqualTo("email", email)
-                                    .get()
-                                    .addOnSuccessListener { documents ->
-                                        if (!documents.isEmpty) {
-                                            val doc = documents.documents.first()
-                                            if (doc.getString("password") == password) {
-                                                val userId = doc.getString("userId") ?: ""
-                                                sessionManager.saveSession(userId, email)
-                                                navController.navigate(NavHome) {
-                                                    popUpTo(NavLogin) { inclusive = true }
-                                                }
-                                            } else {
-                                                message = "Incorrect password"
-                                            }
-                                        } else {
-                                            message = "Email not found"
-                                        }
-                                        isLoading = false
-                                    }
-                                    .addOnFailureListener {
-                                        message = "Login failed: ${it.message}"
-                                        isLoading = false
-                                    }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryBlue
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = !isLoading
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
-                                Text(
-                                    "Login",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        TextButton(
-                            onClick = { navController.navigate(NavSignup) }
-                        ) {
-                            Text(
-                                "Don't have an account? Sign up",
-                                color = PrimaryBlue,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Buttons
+            Column(
+                modifier = Modifier.alpha(buttonsAlpha.value)
+            ) {
+                SGButton(
+                    text = "Login",
+                    onClick = {
+                        if (!ValidationUtils.isValidEmail(email)) {
+                            message = "Please enter a valid email"
+                            return@SGButton
+                        }
+                        isLoading = true
+                        FirebaseFirestore.getInstance()
+                            .collection("UserAuth")
+                            .whereEqualTo("email", email)
+                            .get()
+                            .addOnSuccessListener { documents ->
+                                if (!documents.isEmpty) {
+                                    val doc = documents.documents.first()
+                                    if (doc.getString("password") == password) {
+                                        val userId = doc.getString("userId") ?: ""
+                                        sessionManager.saveSession(userId, email)
+                                        navController.navigate(NavHome) {
+                                            popUpTo(NavLogin) { inclusive = true }
+                                        }
+                                    } else {
+                                        message = "Incorrect password"
+                                    }
+                                } else {
+                                    message = "Email not found"
+                                }
+                                isLoading = false
+                            }
+                            .addOnFailureListener {
+                                message = "Login failed: ${it.message}"
+                                isLoading = false
+                            }
+                    },
+                    variant = SGButtonVariant.Primary,
+                    isLoading = isLoading,
+                    enabled = !isLoading
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Don't have an account?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Slate500
+                    )
+                    TextButton(
+                        onClick = { navController.navigate(NavSignup) },
+                        enabled = !isLoading
+                    ) {
+                        Text(
+                            text = "Sign Up",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = GovGreen
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
