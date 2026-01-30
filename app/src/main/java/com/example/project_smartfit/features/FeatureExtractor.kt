@@ -1,5 +1,7 @@
-package com.example.project_smartfit
+package com.example.project_smartfit.features
 
+import com.example.project_smartfit.pose.Person
+import com.example.project_smartfit.pose.KeyPoint
 import android.util.Log
 import kotlin.math.atan2
 import kotlin.math.cos

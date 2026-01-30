@@ -1,4 +1,4 @@
-package com.example.project_smartfit
+package com.example.project_smartfit.pose
 
 /**
  * Centralized configuration for pose detection and feature extraction
@@ -306,4 +306,3 @@ object PoseDetectionConfig {
         return valid
     }
 }
-

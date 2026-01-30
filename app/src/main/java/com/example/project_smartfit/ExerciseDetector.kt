@@ -1,31 +1,18 @@
 package com.example.project_smartfit
 
+import com.example.project_smartfit.pose.Person
+import com.example.project_smartfit.pose.KeyPoint
+ import com.example.project_smartfit.features.FeatureExtractor
+import com.example.project_smartfit.features.PostureFeatures
+import com.example.project_smartfit.exercises.ExerciseType
+import com.example.project_smartfit.exercises.ExerciseState
 import android.util.Log
 import kotlin.math.abs
 import kotlin.math.sqrt
 
-/**
- * Types of exercises that can be detected
- */
-enum class ExerciseType {
-    PUSHUP,
-    SQUAT,
-    PLANK,
-    JUMPING_JACKS,
-    DUMBBELL_CURL,
-    UNKNOWN
-}
+// ExerciseType moved to com.example.project_smartfit.exercises.ExerciseType
 
-/**
- * State of exercise detection and repetition tracking
- */
-data class ExerciseState(
-    val exerciseType: ExerciseType = ExerciseType.UNKNOWN,
-    val repCount: Int = 0,
-    val isInMotion: Boolean = false,
-    val lastFrameState: String = "", // "up", "down", "hold", etc.
-    val confidenceScore: Float = 0f
-)
+// ExerciseState moved to com.example.project_smartfit.exercises.ExerciseState
 
 /**
  * Exercise detector that identifies which exercise is being performed

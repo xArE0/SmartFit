@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
+import com.example.project_smartfit.pose.overlay.PostureAnalysisReport
 
 /**
  * Example Page 1: Workout Monitoring

@@ -1,4 +1,4 @@
-package com.example.project_smartfit
+package com.example.project_smartfit.pose
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -140,4 +140,3 @@ class PoseDetector(private val context: Context) {
         interpreter?.close()
     }
 }
-

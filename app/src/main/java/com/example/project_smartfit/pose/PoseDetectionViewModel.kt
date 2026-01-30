@@ -1,4 +1,4 @@
-package com.example.project_smartfit
+package com.example.project_smartfit.pose
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,6 +8,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.example.project_smartfit.features.FeatureExtractor
+import com.example.project_smartfit.features.PostureFeatures
+import com.example.project_smartfit.ExerciseDetector
+import com.example.project_smartfit.ExerciseType
+import com.example.project_smartfit.ExerciseState
 
 /**
  * Encapsulates all pose detection state for reusability across pages
@@ -256,4 +261,3 @@ class PoseDetectionViewModelFactory(private val context: Context) :
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-
