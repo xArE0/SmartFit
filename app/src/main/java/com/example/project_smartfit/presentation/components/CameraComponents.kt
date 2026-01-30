@@ -14,24 +14,24 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.example.project_smartfit.domain.model.ExerciseType
 import com.example.project_smartfit.domain.model.ExerciseState
+import com.example.project_smartfit.presentation.theme.*
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -79,51 +79,75 @@ fun ExerciseStatsOverlay(
     fps: Int,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.material3.Card(
-        modifier = modifier,
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = Color.Black.copy(alpha = 0.7f)
-        )
+    GlassCard(
+        variant = GlassCardVariant.Dark,
+        cornerRadius = 16.dp,
+        modifier = modifier.width(160.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Header
+            Text(
+                text = exerciseType.name.replace("_", " "),
+                style = MaterialTheme.typography.labelSmall,
+                color = GovGreenLight,
+                fontWeight = FontWeight.Bold
+            )
+
             // Rep count
             if (exerciseState != null && exerciseType != ExerciseType.PLANK) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column {
                     Text(
-                        text = "Reps:",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        text = "REPS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Slate400
                     )
                     Text(
                         text = exerciseState.repCount.toString(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.Green
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+            } else if (exerciseType == ExerciseType.PLANK) {
+                // Timer could go here for plank
+                Text(
+                    text = "STABLE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GovBlueLight
+                )
+            }
+
+            // Current state tag
+            if (exerciseState != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Slate700.copy(alpha = 0.5f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = exerciseState.lastFrameState.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate300
                     )
                 }
             }
 
-            // Current state
-            if (exerciseState != null) {
+            // FPS metric
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 Text(
-                    text = "State: ${exerciseState.lastFrameState.uppercase()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White
+                    text = "$fps FPS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Slate500,
+                    fontSize = 10.sp
                 )
             }
-
-            // FPS
-            Text(
-                text = "FPS: $fps",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
         }
     }
 }

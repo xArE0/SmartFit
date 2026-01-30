@@ -1,35 +1,26 @@
 package com.example.project_smartfit.presentation.screens.exercise
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
-import com.example.project_smartfit.presentation.components.PostureAnalysisReport
-import com.example.project_smartfit.presentation.components.RecommendationsCard
+import com.example.project_smartfit.presentation.components.*
+import com.example.project_smartfit.presentation.theme.*
+import com.example.project_smartfit.presentation.screens.exercise.CameraScreen
 
 /**
  * Posture Analysis Report Screen
@@ -60,47 +51,111 @@ fun PostureAnalysisScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Posture Analysis") }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Camera with small preview
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black)
-            ) {
-                CameraScreen(viewModel = vm)
-            }
-
-            // Full analysis report
-            if (state.postureFeatures != null) {
-                PostureAnalysisReport(
-                    features = state.postureFeatures!!,
-                    modifier = Modifier.fillMaxWidth()
+    LightAuroraBackground(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Posture Analysis",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = GovBlue
+                            )
+                        }
+                    }
                 )
-
-                // Recommendations
-                RecommendationsCard(features = state.postureFeatures!!)
             }
-
-            Button(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.fillMaxWidth()
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Text("Done", color = Color.White)
+                // Camera Preview Section
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.Black)
+                ) {
+                    CameraScreen(viewModel = vm)
+                }
+
+                // Stats / Analysis Section
+                if (state.postureFeatures != null) {
+                    GlassCard(
+                        variant = GlassCardVariant.Light,
+                        cornerRadius = 24.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(
+                                "Live Feedback",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                            
+                            PostureAnalysisReport(
+                                features = state.postureFeatures!!,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    // Recommendations
+                    GlassCard(
+                        variant = GlassCardVariant.Accent,
+                        cornerRadius = 24.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RecommendationsCard(features = state.postureFeatures!!)
+                    }
+                } else {
+                    // Loading State inside a card
+                    GlassCard(
+                        variant = GlassCardVariant.Light,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = GovBlue)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Analyzing Posture...", color = Slate600)
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GovBlue)
+                ) {
+                    Text("Complete Session", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

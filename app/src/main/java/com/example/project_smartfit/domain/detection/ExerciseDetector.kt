@@ -37,9 +37,6 @@ class ExerciseDetector {
     }
 
     private var previousState: ExerciseState = ExerciseState()
-    private var repInProgress = false
-    private var repStartQuality = 0f
-    private var lastValidStateTransition: Pair<String, String>? = null // Track valid state transitions
     private var framesSinceStateChange = 0 // Debounce state changes
 
     /**
@@ -219,6 +216,9 @@ class ExerciseDetector {
         )
     }
 
+    private var lastStableState: String = ""
+    private var pendingState: String = ""
+
     /**
      * Check if a new repetition should be counted
      * Includes confidence validation to prevent false counts from poor poses
@@ -227,7 +227,12 @@ class ExerciseDetector {
         previousState: ExerciseState,
         currentState: ExerciseState
     ): Boolean {
-        if (previousState.exerciseType != currentState.exerciseType) return false
+        if (previousState.exerciseType != currentState.exerciseType) {
+            lastStableState = ""
+            pendingState = ""
+            framesSinceStateChange = 0
+            return false
+        }
 
         // Don't count reps if confidence is too low (e.g., camera at ceiling)
         if (currentState.confidenceScore < MIN_REP_CONFIDENCE) {
@@ -235,47 +240,38 @@ class ExerciseDetector {
             return false
         }
 
-        // Debounce: only process state changes after several stable frames
-        val stateChanged = previousState.lastFrameState != currentState.lastFrameState &&
-                previousState.lastFrameState.isNotEmpty()
+        val currentFrameState = currentState.lastFrameState
 
-        if (!stateChanged) {
-            framesSinceStateChange = 0
-            return false
+        if (currentFrameState == pendingState) {
+            framesSinceStateChange++
+        } else {
+            pendingState = currentFrameState
+            framesSinceStateChange = 1
         }
 
-        framesSinceStateChange++
-        if (framesSinceStateChange < STATE_CHANGE_DEBOUNCE) {
-            return false
+        // Only update stable state after debounce period
+        if (framesSinceStateChange >= STATE_CHANGE_DEBOUNCE) {
+            val oldStableState = lastStableState
+            lastStableState = pendingState
+
+            if (oldStableState.isNotEmpty() && oldStableState != lastStableState) {
+                // Check for valid transitions to count rep
+                val shouldCount = when (currentState.exerciseType) {
+                    ExerciseType.PUSHUP -> oldStableState == "down" && lastStableState == "up"
+                    ExerciseType.SQUAT -> oldStableState == "down" && lastStableState == "up"
+                    ExerciseType.JUMPING_JACKS -> oldStableState == "wide" && lastStableState == "narrow"
+                    ExerciseType.DUMBBELL_CURL -> oldStableState == "up" && lastStableState == "down"
+                    else -> false
+                }
+                
+                if (shouldCount) {
+                    Log.d(TAG, "✓ Rep counted for ${currentState.exerciseType}: $oldStableState -> $lastStableState")
+                    return true
+                }
+            }
         }
 
-        val shouldCount = when (currentState.exerciseType) {
-            ExerciseType.PUSHUP -> {
-                // Count rep when returning to up position from down
-                previousState.lastFrameState == "down" && currentState.lastFrameState == "up"
-            }
-            ExerciseType.SQUAT -> {
-                // Count rep when returning to up position from down
-                previousState.lastFrameState == "down" && currentState.lastFrameState == "up"
-            }
-            ExerciseType.PLANK -> false // plank is timed, not rep-based
-            ExerciseType.JUMPING_JACKS -> {
-                // Count rep when returning to narrow from wide
-                previousState.lastFrameState == "wide" && currentState.lastFrameState == "narrow"
-            }
-            ExerciseType.DUMBBELL_CURL -> {
-                // Count rep when returning to down from up
-                previousState.lastFrameState == "up" && currentState.lastFrameState == "down"
-            }
-            else -> false
-        }
-
-        if (shouldCount) {
-            lastValidStateTransition = previousState.lastFrameState to currentState.lastFrameState
-            framesSinceStateChange = 0
-        }
-
-        return shouldCount
+        return false
     }
 
     /**

@@ -9,33 +9,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.ViewModelProvider
 import com.example.project_smartfit.domain.model.ExerciseType
-import com.example.project_smartfit.presentation.components.CameraPreviewWithOverlay
-import com.example.project_smartfit.presentation.components.ExerciseStatsOverlay
-import com.example.project_smartfit.presentation.components.PoseVisualization
+import com.example.project_smartfit.presentation.components.*
+import com.example.project_smartfit.presentation.theme.*
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -72,95 +65,139 @@ fun ExerciseDetectionScreen(
         }
     }
 
-    if (cameraPermission.status.isGranted) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top bar
-            TopAppBar(
-                title = { Text(exerciseType.name.replace("_", " ")) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Home, contentDescription = "Back")
-                    }
-                }
-            )
-
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .weight(1f)) {
-                var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
-
-                if (detectionState.isModelLoaded) {
-                    CameraPreviewWithOverlay(
-                        context = context,
-                        lifecycleOwner = lifecycleOwner,
-                        onPreviewViewReady = { previewView ->
-                            previewViewRef = previewView
+    LightAuroraBackground(modifier = Modifier.fillMaxSize()) {
+        if (cameraPermission.status.isGranted) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                exerciseType.name.replace("_", " "),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
                         },
-                        onFrameAnalyzed = { bitmap ->
-                            viewModel.processCameraFrame(bitmap)
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
+                        ),
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = GovBlue
+                                )
+                            }
                         }
                     )
+                }
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.Black)
+                ) {
+                    var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
 
-                    // Overlay with pose visualization
-                    if (detectionState.currentPerson != null && previewViewRef != null &&
-                        previewViewRef!!.width > 0 && previewViewRef!!.height > 0
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .zIndex(1f)
+                    if (detectionState.isModelLoaded) {
+                        CameraPreviewWithOverlay(
+                            context = context,
+                            lifecycleOwner = lifecycleOwner,
+                            onPreviewViewReady = { previewView ->
+                                previewViewRef = previewView
+                            },
+                            onFrameAnalyzed = { bitmap ->
+                                viewModel.processCameraFrame(bitmap)
+                            }
+                        )
+
+                        // Overlay for pose visualization
+                        if (detectionState.currentPerson != null && previewViewRef != null &&
+                            previewViewRef!!.width > 0 && previewViewRef!!.height > 0
                         ) {
-                            Canvas(modifier = Modifier.matchParentSize()) {
-                                with(PoseVisualization) {
-                                    drawPoseWithFeatures(
-                                        person = detectionState.currentPerson!!,
-                                        features = detectionState.postureFeatures,
-                                        canvasWidth = size.width,
-                                        canvasHeight = size.height,
-                                        bitmapWidth = detectionState.bitmapSize.first,
-                                        bitmapHeight = detectionState.bitmapSize.second,
-                                        highlightIssues = true
-                                    )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .zIndex(1f)
+                            ) {
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    with(PoseVisualization) {
+                                        drawPoseWithFeatures(
+                                            person = detectionState.currentPerson!!,
+                                            features = detectionState.postureFeatures,
+                                            canvasWidth = size.width,
+                                            canvasHeight = size.height,
+                                            bitmapWidth = detectionState.bitmapSize.first,
+                                            bitmapHeight = detectionState.bitmapSize.second,
+                                            highlightIssues = true
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Exercise stats overlay
-                    ExerciseStatsOverlay(
-                        exerciseType = exerciseType,
-                        exerciseState = detectionState.exerciseState,
-                        fps = detectionState.fps,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(16.dp)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Loading models...")
+                        // Exercise stats overlay
+                        ExerciseStatsOverlay(
+                            exerciseType = exerciseType,
+                            exerciseState = detectionState.exerciseState,
+                            fps = detectionState.fps,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = GovGreenLight)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Initializing Vision Engine...", color = Color.White)
+                            }
                         }
                     }
                 }
             }
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Camera permission is required")
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { cameraPermission.launchPermissionRequest() }) {
-                Text("Grant Permission")
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                GlassCard(
+                    variant = GlassCardVariant.Light,
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "Camera Access Required",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "We need camera access to analyze your posture and count reps.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = Slate600
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { cameraPermission.launchPermissionRequest() },
+                            colors = ButtonDefaults.buttonColors(containerColor = GovBlue)
+                        ) {
+                            Text("Grant Permission")
+                        }
+                    }
+                }
             }
         }
     }
