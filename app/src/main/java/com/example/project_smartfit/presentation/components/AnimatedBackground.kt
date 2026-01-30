@@ -384,3 +384,55 @@ private fun LightAuroraOrbs(orbs: List<OrbConfig>) {
         }
     }
 }
+@Composable
+fun DarkAuroraBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val auroraOrbs = remember {
+        listOf(
+            OrbConfig(
+                color = GovGreenLight.copy(alpha = 0.4f),
+                radius = 400f,
+                initialX = 0.3f,
+                initialY = 0.2f,
+                movementRangeX = 0.2f,
+                movementRangeY = 0.15f,
+                duration = 15000
+            ),
+            OrbConfig(
+                color = GovBlueLight.copy(alpha = 0.4f),
+                radius = 350f,
+                initialX = 0.7f,
+                initialY = 0.4f,
+                movementRangeX = 0.15f,
+                movementRangeY = 0.2f,
+                duration = 12000
+            ),
+            OrbConfig(
+                color = GovGoldLight.copy(alpha = 0.3f),
+                radius = 300f,
+                initialX = 0.5f,
+                initialY = 0.8f,
+                movementRangeX = 0.25f,
+                movementRangeY = 0.1f,
+                duration = 18000
+            )
+        )
+    }
+    
+    Box(modifier = modifier) {
+        // Dark base background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Slate950)
+        )
+        
+        // Animated aurora orbs
+        LightAuroraOrbs(orbs = auroraOrbs)
+        
+        // Content on top
+        content()
+    }
+}

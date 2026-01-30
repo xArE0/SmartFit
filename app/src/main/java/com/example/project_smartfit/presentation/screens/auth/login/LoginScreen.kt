@@ -78,17 +78,23 @@ fun LoginScreen(
         label = "logo_float"
     )
 
-    LightAuroraBackground(
+    DarkAuroraBackground(
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentAlignment = Alignment.Center
         ) {
-            Spacer(modifier = Modifier.height(35.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
 
             // Logo section
             Column(
@@ -126,7 +132,7 @@ fun LoginScreen(
                     text = "SmartFit",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Slate900
+                    color = Color.White
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -134,7 +140,7 @@ fun LoginScreen(
                 Text(
                     text = "AI-Powered Posture Training",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Slate500,
+                    color = Slate300,
                     textAlign = TextAlign.Center
                 )
             }
@@ -143,7 +149,7 @@ fun LoginScreen(
 
             // Login card
             GlassCard(
-                variant = GlassCardVariant.Light,
+                variant = GlassCardVariant.Dark,
                 borderGradient = true,
                 animateEntrance = true,
                 entranceDelay = 200,
@@ -156,7 +162,7 @@ fun LoginScreen(
                         text = "Welcome Back",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = Slate900
+                        color = Color.White
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -200,7 +206,7 @@ fun LoginScreen(
                         Text(
                             text = message,
                             style = MaterialTheme.typography.bodySmall,
-                            color = ErrorRed,
+                            color = ErrorRedLight,
                             modifier = Modifier.padding(start = 4.dp)
                         )
                     }
@@ -262,7 +268,7 @@ fun LoginScreen(
                     Text(
                         text = "Don't have an account?",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Slate500
+                        color = Slate300
                     )
                     TextButton(
                         onClick = { navController.navigate(NavSignup) },
@@ -272,13 +278,14 @@ fun LoginScreen(
                             text = "Sign Up",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
-                            color = GovGreen
+                            color = GovGreenLight
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }

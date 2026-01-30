@@ -64,17 +64,23 @@ fun SignupScreen(navController: NavController) {
         isVisible = true
     }
 
-    LightAuroraBackground(
+    DarkAuroraBackground(
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentAlignment = Alignment.Center
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
 
             // Header
             AnimatedVisibility(
@@ -86,14 +92,14 @@ fun SignupScreen(navController: NavController) {
                         text = if (step == 0) "Welcome to SmartFit" else "Create Account",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Slate900,
+                        color = Color.White,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (step == 0) "Transform your posture with AI" else "Join us for a healthier lifestyle",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Slate500,
+                        color = Slate300,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -114,7 +120,7 @@ fun SignupScreen(navController: NavController) {
 
             // Glass Card with steps
             GlassCard(
-                variant = GlassCardVariant.Light,
+                variant = GlassCardVariant.Dark,
                 borderGradient = true,
                 animateEntrance = true,
                 entranceDelay = 300,
@@ -298,7 +304,7 @@ fun SignupScreen(navController: NavController) {
                     Text(
                         text = "Already have an account?",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Slate500
+                        color = Slate300
                     )
                     TextButton(
                         onClick = { navController.navigate(NavLogin) },
@@ -308,13 +314,14 @@ fun SignupScreen(navController: NavController) {
                             text = "Login",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
-                            color = GovGreen
+                            color = GovGreenLight
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }
@@ -338,7 +345,7 @@ private fun SignupStepIndicator(currentStep: Int, totalSteps: Int) {
             )
 
             val backgroundColor by animateColorAsState(
-                targetValue = if (isActive) GovGreen else Slate200,
+                targetValue = if (isActive) GovGreenLight else Slate700,
                 animationSpec = tween(300),
                 label = "step_bg"
             )
@@ -352,9 +359,9 @@ private fun SignupStepIndicator(currentStep: Int, totalSteps: Int) {
                 contentAlignment = Alignment.Center
             ) {
                 if (isActive && !isCurrent) {
-                    Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Slate900, modifier = Modifier.size(18.dp))
                 } else {
-                    Text(text = "${index + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (isActive) Color.White else Slate500)
+                    Text(text = "${index + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (isActive) Slate900 else Slate400)
                 }
             }
 
@@ -363,8 +370,8 @@ private fun SignupStepIndicator(currentStep: Int, totalSteps: Int) {
                 val progress by animateFloatAsState(targetValue = if (isCompleted) 1f else 0f, animationSpec = columnAnimationSpec(), label = "line_progress")
                 
                 Box(modifier = Modifier.width(40.dp).height(3.dp).padding(horizontal = 4.dp)) {
-                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(1.5.dp)).background(Slate200))
-                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(progress).clip(RoundedCornerShape(1.5.dp)).background(GovGreen))
+                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(1.5.dp)).background(Slate700))
+                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(progress).clip(RoundedCornerShape(1.5.dp)).background(GovGreenLight))
                 }
             }
         }
@@ -377,16 +384,16 @@ fun columnAnimationSpec() = tween<Float>(durationMillis = 400)
 @Composable
 private fun WelcomeStep(onNext: () -> Unit, onLoginClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
-        Icon(imageVector = Icons.Default.FitnessCenter, contentDescription = null, tint = GovGreen, modifier = Modifier.size(64.dp))
+        Icon(imageVector = Icons.Default.FitnessCenter, contentDescription = null, tint = GovGreenLight, modifier = Modifier.size(64.dp))
         Spacer(modifier = Modifier.height(24.dp))
-        Text(text = "Begin Your Journey", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Slate900, textAlign = TextAlign.Center)
+        Text(text = "Begin Your Journey", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(12.dp))
-        Text(text = "We'll customize your experience based on your fitness goals and posture needs.", style = MaterialTheme.typography.bodyMedium, color = Slate600, textAlign = TextAlign.Center)
+        Text(text = "We'll customize your experience based on your fitness goals and posture needs.", style = MaterialTheme.typography.bodyMedium, color = Slate300, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
         SGButton(text = "Start Creating Account", onClick = onNext, variant = SGButtonVariant.Primary)
         Spacer(modifier = Modifier.height(16.dp))
         TextButton(onClick = onLoginClick) {
-            Text("Already have an account? Login", color = GovGreen, fontWeight = FontWeight.SemiBold)
+            Text("Already have an account? Login", color = GovGreenLight, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -400,7 +407,7 @@ private fun PersonalInfoStep(
     message: String
 ) {
     Column {
-        Text(text = "Tell us about yourself", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Slate900)
+        Text(text = "Tell us about yourself", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
         Spacer(modifier = Modifier.height(20.dp))
         SGTextField(value = name, onValueChange = onNameChange, label = "Full Name", placeholder = "Enter your name", leadingIcon = Icons.Default.Person)
         Spacer(modifier = Modifier.height(16.dp))
@@ -411,7 +418,7 @@ private fun PersonalInfoStep(
         DropdownField(value = fitnessLevel, label = "Fitness Level", options = fitnessLevels, onSelected = onFitnessLevelChange, icon = Icons.Default.FitnessCenter)
         
         if (message.isNotEmpty() && message.contains("fields")) {
-            Text(text = message, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text(text = message, color = ErrorRedLight, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -424,7 +431,7 @@ private fun MetricsStep(
     message: String
 ) {
     Column {
-        Text(text = "Fitness Metrics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Slate900)
+        Text(text = "Fitness Metrics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
         Spacer(modifier = Modifier.height(20.dp))
         SGTextField(value = age, onValueChange = onAgeChange, label = "Age", placeholder = "e.g. 25", leadingIcon = Icons.Default.CalendarToday, keyboardType = KeyboardType.Number)
         Spacer(modifier = Modifier.height(16.dp))
@@ -433,7 +440,7 @@ private fun MetricsStep(
         SGTextField(value = height, onValueChange = onHeightChange, label = "Height (cm)", placeholder = "e.g. 175", leadingIcon = Icons.Default.Straighten, keyboardType = KeyboardType.Decimal)
         
         if (message.isNotEmpty()) {
-            Text(text = message, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text(text = message, color = ErrorRedLight, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -445,14 +452,14 @@ private fun AccountStep(
     message: String, isLoading: Boolean
 ) {
     Column {
-        Text(text = "Account Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Slate900)
+        Text(text = "Account Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
         Spacer(modifier = Modifier.height(20.dp))
         SGTextField(value = email, onValueChange = onEmailChange, label = "Email", placeholder = "your@email.com", leadingIcon = Icons.Default.Email, keyboardType = KeyboardType.Email, enabled = !isLoading)
         Spacer(modifier = Modifier.height(16.dp))
         SGTextField(value = password, onValueChange = onPasswordChange, label = "Password", placeholder = "Min 8 characters", leadingIcon = Icons.Default.Lock, isPassword = true, enabled = !isLoading)
         
         if (message.isNotEmpty()) {
-            Text(text = message, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text(text = message, color = ErrorRedLight, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -474,17 +481,19 @@ private fun DropdownField(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
-            leadingIcon = { Icon(imageVector = icon, contentDescription = null, tint = if (value.isNotEmpty()) GovGreen else Slate400) },
+            leadingIcon = { Icon(imageVector = icon, contentDescription = null, tint = if (value.isNotEmpty()) GovGreenLight else Slate400) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = GovGreen,
-                unfocusedBorderColor = Slate300,
-                focusedLabelColor = GovGreen,
-                unfocusedLabelColor = Slate500,
-                focusedLeadingIconColor = GovGreen,
-                unfocusedLeadingIconColor = Slate400
+                focusedBorderColor = GovGreenLight,
+                unfocusedBorderColor = Slate700,
+                focusedLabelColor = GovGreenLight,
+                unfocusedLabelColor = Slate400,
+                focusedLeadingIconColor = GovGreenLight,
+                unfocusedLeadingIconColor = Slate400,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
             )
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
