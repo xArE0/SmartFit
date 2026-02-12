@@ -116,8 +116,9 @@ fun ExerciseDetectionScreen(
                             }
                         )
 
-                        // Overlay for pose visualization
-                        if (detectionState.currentPerson != null && previewViewRef != null &&
+                        // Overlay for MediaPipe pose skeleton
+                        val currentPose = detectionState.currentPoseFrame
+                        if (currentPose != null && previewViewRef != null &&
                             previewViewRef!!.width > 0 && previewViewRef!!.height > 0
                         ) {
                             Box(
@@ -126,30 +127,86 @@ fun ExerciseDetectionScreen(
                                     .zIndex(1f)
                             ) {
                                 Canvas(modifier = Modifier.matchParentSize()) {
-                                    with(PoseVisualization) {
-                                        drawPoseWithFeatures(
-                                            person = detectionState.currentPerson!!,
-                                            features = detectionState.postureFeatures,
+                                    with(MediaPipePoseDrawer) {
+                                        val errorJoints = detectionState.formResult?.errors
+                                            ?.flatMap { it.affectedJoints }
+                                            ?: emptyList()
+                                        
+                                        drawPoseWithFeedback(
+                                            poseFrame = currentPose,
                                             canvasWidth = size.width,
                                             canvasHeight = size.height,
-                                            bitmapWidth = detectionState.bitmapSize.first,
-                                            bitmapHeight = detectionState.bitmapSize.second,
-                                            highlightIssues = true
+                                            isFormCorrect = detectionState.isFormCorrect,
+                                            errorJoints = errorJoints,
+                                            minVisibility = 0.5f
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // Exercise stats overlay
-                        ExerciseStatsOverlay(
-                            exerciseType = exerciseType,
-                            exerciseState = detectionState.exerciseState,
-                            fps = detectionState.fps,
+                        // Exercise stats overlay - using new state
+                        Card(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(16.dp)
-                        )
+                                .zIndex(2f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = exerciseType.name.replace("_", " "),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Divider()
+                                Text(
+                                    text = "Reps: ${detectionState.repCount}",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (detectionState.isFormCorrect) GovGreenLight else Color.Yellow
+                                )
+                                Text(
+                                    text = "Phase: ${detectionState.currentPhase.name}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "FPS: ${detectionState.fps}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        
+                        // Form feedback overlay - bottom
+                        if (detectionState.primaryFeedback != null) {
+                            Card(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(16.dp)
+                                    .fillMaxWidth()
+                                    .zIndex(2f),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (detectionState.isFormCorrect) {
+                                        Color(0xFF4CAF50).copy(alpha = 0.9f)
+                                    } else {
+                                        Color(0xFFF44336).copy(alpha = 0.9f)
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    text = detectionState.primaryFeedback!!,
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     } else {
                         Box(
                             modifier = Modifier.fillMaxSize(),

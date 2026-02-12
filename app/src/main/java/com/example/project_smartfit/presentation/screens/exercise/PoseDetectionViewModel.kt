@@ -8,249 +8,385 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.example.project_smartfit.domain.features.FeatureExtractor
-import com.example.project_smartfit.domain.features.PostureFeatures
-import com.example.project_smartfit.domain.detection.ExerciseDetector
-import com.example.project_smartfit.domain.detection.PoseDetector
-import com.example.project_smartfit.domain.model.ExerciseType
-import com.example.project_smartfit.domain.model.ExerciseState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.example.project_smartfit.domain.detection.MediaPipePoseDetector
+import com.example.project_smartfit.domain.features.PoseFeatureExtractor
+import com.example.project_smartfit.domain.evaluation.RuleBasedFormEvaluator
+import com.example.project_smartfit.domain.evaluation.ExerciseProfiles
+import com.example.project_smartfit.domain.tracking.RepTracker
+import com.example.project_smartfit.domain.model.*
 
 /**
- * Encapsulates all pose detection state for reusability across pages
+ * UI State for pose detection and exercise tracking
  */
-data class PoseDetectionState(
-    val currentPerson: com.example.project_smartfit.domain.detection.Person? = null,
-    val postureFeatures: PostureFeatures? = null,
+data class ExerciseTrackingState(
     val isModelLoaded: Boolean = false,
-    val fps: Int = 0,
-    val elapsedTimeMs: Long = 0L,
-    val bitmapSize: Pair<Int, Int> = Pair(640, 480),
-    val isDetecting: Boolean = false,
+    val isProcessing: Boolean = false,
     val errorMessage: String? = null,
-    // Exercise detection fields
-    val currentExercise: ExerciseType = ExerciseType.UNKNOWN,
-    val exerciseState: ExerciseState? = null,
-    val isTrackingExercise: Boolean = false
-)
+    
+    // Pose detection
+    val currentPoseFrame: PoseFrame? = null,
+    val currentFeatures: FeatureVector? = null,
+    
+    // Exercise tracking
+    val selectedExercise: ExerciseType = ExerciseType.SQUAT,
+    val isTrackingActive: Boolean = false,
+    
+    // Form evaluation
+    val formResult: FormEvaluationResult? = null,
+    val isFormCorrect: Boolean = false,
+    val currentErrors: List<String> = emptyList(),
+    val primaryFeedback: String? = null,
+    
+    // Rep tracking
+    val repCount: Int = 0,
+    val currentPhase: RepPhase = RepPhase.UNKNOWN,
+    
+    // Performance metrics
+    val fps: Int = 0,
+    val averageVisibility: Float = 0f,
+    
+    // Debug mode
+    val debugMode: Boolean = false,
+    val debugAngles: Map<String, Float> = emptyMap()
+) {
+    // ========== Backward Compatibility Properties ==========
+    // These properties exist for compatibility with old UI screens
+    // that reference the old PoseDetectionState structure
+    
+    val currentPerson: com.example.project_smartfit.domain.detection.Person? = null
+    val postureFeatures: com.example.project_smartfit.domain.features.PostureFeatures? = null
+    val elapsedTimeMs: Long = 0L
+    val bitmapSize: Pair<Int, Int> = Pair(640, 480)
+    val exerciseState: com.example.project_smartfit.domain.model.ExerciseState? = null
+    val isTrackingExercise: Boolean = isTrackingActive
+    val currentExercise: ExerciseType = selectedExercise
+}
 
 /**
- * ViewModel for managing pose detection across the app
- * Handles model initialization, pose detection, and feature extraction
+ * ViewModel for real-time exercise form evaluation
+ * Integrates: MediaPipe Pose → Feature Extraction → Rule-Based Evaluation → Rep Tracking
  */
 class PoseDetectionViewModel(private val context: Context) : ViewModel() {
-
+    
     companion object {
         private const val TAG = "PoseDetectionVM"
     }
-
-    private val _state = MutableStateFlow(PoseDetectionState())
-    val state: StateFlow<PoseDetectionState> = _state
-
-    private var poseDetector: PoseDetector? = null
-    private var featureExtractor: FeatureExtractor? = null
-    private var exerciseDetector: ExerciseDetector? = null
-
+    
+    private val _state = MutableStateFlow(ExerciseTrackingState())
+    val state: StateFlow<ExerciseTrackingState> = _state
+    
+    // Core components
+    private var poseDetector: MediaPipePoseDetector? = null
+    private var featureExtractor: PoseFeatureExtractor? = null
+    private var formEvaluator: RuleBasedFormEvaluator? = null
+    private var repTracker: RepTracker? = null
+    
+    // Performance tracking
     private var frameCount = 0
     private var lastFpsTimestamp = System.currentTimeMillis()
-    private var startTime: Long? = null
-
+    private var lastProcessedFrameTime = 0L
+    private val minFrameIntervalMs = 33L  // ~30 FPS max to prevent backlog
+    
     init {
-        initializeModels()
+        initializeSystem()
     }
-
+    
     /**
-     * Initialize TensorFlow and feature extraction models
+     * Initialize all components
      */
-    private fun initializeModels() {
+    private fun initializeSystem() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Initializing pose detection models...")
-
-                poseDetector = PoseDetector(context).apply {
+                Log.d(TAG, "Initializing exercise tracking system...")
+                
+                // Initialize MediaPipe Pose detector
+                poseDetector = MediaPipePoseDetector(context).apply {
                     if (!initialize()) {
                         _state.value = _state.value.copy(
-                            errorMessage = "Failed to initialize pose detector"
+                            errorMessage = "Failed to initialize MediaPipe Pose. Check if model file exists."
                         )
                         return@launch
                     }
                 }
-
-                featureExtractor = FeatureExtractor(context)
-                exerciseDetector = ExerciseDetector()
-
+                
+                // Initialize feature extractor
+                featureExtractor = PoseFeatureExtractor()
+                
+                // Initialize with default exercise (Squat)
+                updateExerciseProfile(ExerciseType.SQUAT)
+                
                 _state.value = _state.value.copy(
                     isModelLoaded = true,
                     errorMessage = null
                 )
-
-                Log.d(TAG, "Models initialized successfully")
+                
+                Log.d(TAG, "System initialized successfully")
             } catch (e: Exception) {
-                Log.e(TAG, "Error initializing models", e)
+                Log.e(TAG, "Error initializing system", e)
                 _state.value = _state.value.copy(
-                    errorMessage = "Error: ${e.message}"
+                    errorMessage = "Initialization error: ${e.message}"
                 )
             }
         }
     }
-
+    
     /**
-     * Process a frame from camera
+     * Process camera frame through complete pipeline
      */
     fun processCameraFrame(bitmap: Bitmap) {
-        if (!_state.value.isModelLoaded || poseDetector == null) return
-
+        if (!_state.value.isModelLoaded) return
+        
+        // Throttle frame processing to prevent backlog
+        val now = System.currentTimeMillis()
+        if (now - lastProcessedFrameTime < minFrameIntervalMs) {
+            return  // Skip this frame
+        }
+        lastProcessedFrameTime = now
+        
+        // Skip if already processing (prevent queue buildup)
+        if (_state.value.isProcessing) {
+            return
+        }
+        
         viewModelScope.launch {
             try {
-                _state.value = _state.value.copy(isDetecting = true)
-
-                // Detect pose
-                val person = poseDetector!!.detectPose(bitmap)
-
-                // Extract features
-                val features = if (person != null) {
-                    featureExtractor?.extractFeatures(person)
-                } else {
-                    null
+                _state.value = _state.value.copy(isProcessing = true)
+                
+                // Run detection on background thread
+                val result = withContext(Dispatchers.Default) {
+                    processFramePipeline(bitmap)
                 }
-
-                // Process exercise if tracking
-                var exerciseState: ExerciseState? = null
-                var currentExercise = _state.value.currentExercise
-
-                if (_state.value.isTrackingExercise && person != null && features != null) {
-                    // Auto-detect exercise type if not manually selected
-                    if (currentExercise == ExerciseType.UNKNOWN) {
-                        currentExercise = exerciseDetector?.detectExerciseType(person, features)
-                            ?: ExerciseType.UNKNOWN
-                    }
-
-                    // Process exercise frame
-                    if (currentExercise != ExerciseType.UNKNOWN) {
-                        exerciseState = exerciseDetector?.processFrame(person, features, currentExercise)
-                    }
-                }
-
-                // Update FPS
-                frameCount++
-                val now = System.currentTimeMillis()
-                val fps = if (now - lastFpsTimestamp > 1000) {
-                    val calculatedFps = frameCount
-                    frameCount = 0
-                    lastFpsTimestamp = now
-                    calculatedFps
-                } else {
-                    _state.value.fps
-                }
-
-                // Update elapsed time
-                if (person != null) {
-                    if (startTime == null) startTime = System.currentTimeMillis()
-                    val elapsedTime = System.currentTimeMillis() - (startTime ?: System.currentTimeMillis())
-
-                    _state.value = _state.value.copy(
-                        currentPerson = person,
-                        postureFeatures = features,
-                        fps = fps,
-                        elapsedTimeMs = elapsedTime,
-                        bitmapSize = Pair(bitmap.width, bitmap.height),
-                        isDetecting = false,
-                        currentExercise = currentExercise,
-                        exerciseState = exerciseState
-                    )
-                } else {
-                    _state.value = _state.value.copy(
-                        isDetecting = false
-                    )
-                }
-
+                
+                // Update UI state
+                _state.value = result
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing frame", e)
                 _state.value = _state.value.copy(
-                    errorMessage = "Frame processing error",
-                    isDetecting = false
+                    isProcessing = false,
+                    currentPoseFrame = null,  // Clear on error
+                    errorMessage = "Processing error: ${e.message}"
                 )
             }
         }
     }
-
+    
     /**
-     * Start a new detection session
+     * Complete processing pipeline (runs on background thread)
      */
-    fun startSession() {
-        startTime = System.currentTimeMillis()
+    private fun processFramePipeline(bitmap: Bitmap): ExerciseTrackingState {
+        Log.d(TAG, "Processing frame: ${bitmap.width}x${bitmap.height}")
+        
+        // Step 1: Pose Detection (MediaPipe)
+        val poseFrame = poseDetector?.detectPose(bitmap)
+        if (poseFrame == null) {
+            Log.w(TAG, "No pose detected in frame")
+            // IMPORTANT: Clear the pose frame when detection fails
+            return _state.value.copy(
+                currentPoseFrame = null,  // Clear stale data
+                currentFeatures = null,
+                formResult = null,
+                isFormCorrect = false,
+                currentErrors = emptyList(),
+                primaryFeedback = null,
+                isProcessing = false,
+                averageVisibility = 0f,
+                errorMessage = null  // Don't show error for no detection
+            )
+        }
+        
+        Log.d(TAG, "Pose detected! Landmarks: ${poseFrame.landmarks.size}, Avg visibility: ${poseFrame.getAverageVisibility()}")
+        
+        // Step 2: Feature Extraction
+        val features = featureExtractor?.extract(poseFrame)
+        if (features == null) {
+            return _state.value.copy(
+                isProcessing = false,
+                errorMessage = "Feature extraction failed"
+            )
+        }
+        
+        // Step 3: Form Evaluation
+        val formResult = formEvaluator?.evaluate(features)
+        if (formResult == null) {
+            return _state.value.copy(
+                isProcessing = false,
+                errorMessage = "Form evaluation failed"
+            )
+        }
+        
+        // Step 4: Rep Tracking
+        val trackedResult = repTracker?.track(features, formResult) ?: formResult
+        
+        // Update FPS
+        frameCount++
+        val now = System.currentTimeMillis()
+        val fps = if (now - lastFpsTimestamp > 1000) {
+            val calculatedFps = frameCount
+            frameCount = 0
+            lastFpsTimestamp = now
+            calculatedFps
+        } else {
+            _state.value.fps
+        }
+        
+        // Extract debug angles if debug mode is on
+        val debugAngles = if (_state.value.debugMode) {
+            extractDebugAngles(features)
+        } else {
+            emptyMap()
+        }
+        
+        // Build updated state
+        return _state.value.copy(
+            currentPoseFrame = poseFrame,
+            currentFeatures = features,
+            formResult = trackedResult,
+            isFormCorrect = trackedResult.isCorrectForm,
+            currentErrors = trackedResult.errors.map { it.message },
+            primaryFeedback = trackedResult.getPrimaryError(),
+            repCount = repTracker?.getRepCount() ?: 0,
+            currentPhase = trackedResult.repPhase,
+            fps = fps,
+            averageVisibility = features.overallVisibility,
+            isProcessing = false,
+            errorMessage = null,
+            debugAngles = debugAngles
+        )
+    }
+    
+    /**
+     * Extract angles for debug display
+     */
+    private fun extractDebugAngles(features: FeatureVector): Map<String, Float> {
+        return when (_state.value.selectedExercise) {
+            ExerciseType.SQUAT -> mapOf(
+                "Left Knee" to features.leftKneeAngle,
+                "Right Knee" to features.rightKneeAngle,
+                "Left Hip" to features.leftHipAngle,
+                "Right Hip" to features.rightHipAngle,
+                "Back Angle" to features.backAngle,
+                "Knee Ratio" to features.kneeDistanceRatio
+            )
+            ExerciseType.PUSHUP -> mapOf(
+                "Left Elbow" to features.leftElbowAngle,
+                "Right Elbow" to features.rightElbowAngle,
+                "Body Alignment" to features.bodyAlignment,
+                "Body Horizontal" to features.bodyHorizontalAngle
+            )
+            ExerciseType.DUMBBELL_CURL -> mapOf(
+                "Left Elbow" to features.leftElbowFlexion,
+                "Right Elbow" to features.rightElbowFlexion,
+                "Torso Upright" to features.torsoUprightness
+            )
+            else -> emptyMap()
+        }
+    }
+    
+    /**
+     * Start tracking exercise
+     */
+    fun startTracking(exerciseType: ExerciseType) {
+        updateExerciseProfile(exerciseType)
+        repTracker?.reset()
         frameCount = 0
         lastFpsTimestamp = System.currentTimeMillis()
+        
         _state.value = _state.value.copy(
-            elapsedTimeMs = 0L,
-            fps = 0
+            selectedExercise = exerciseType,
+            isTrackingActive = true,
+            repCount = 0,
+            currentPhase = RepPhase.UNKNOWN,
+            errorMessage = null
+        )
+        
+        Log.d(TAG, "Started tracking: $exerciseType")
+    }
+    
+    /**
+     * Stop tracking
+     */
+    fun stopTracking() {
+        _state.value = _state.value.copy(
+            isTrackingActive = false
+        )
+        Log.d(TAG, "Stopped tracking")
+    }
+    
+    /**
+     * Reset rep counter
+     */
+    fun resetReps() {
+        repTracker?.reset()
+        _state.value = _state.value.copy(
+            repCount = 0,
+            currentPhase = RepPhase.UNKNOWN
         )
     }
-
+    
     /**
-     * End detection session
+     * Toggle debug mode
      */
-    fun endSession() {
-        startTime = null
+    fun toggleDebugMode() {
         _state.value = _state.value.copy(
-            currentPerson = null,
-            postureFeatures = null,
-            elapsedTimeMs = 0L,
-            fps = 0
+            debugMode = !_state.value.debugMode
         )
     }
-
+    
     /**
-     * Reset all state
+     * Update exercise profile and recreate evaluator/tracker
      */
-    fun reset() {
-        endSession()
-        _state.value = PoseDetectionState(isModelLoaded = _state.value.isModelLoaded)
+    private fun updateExerciseProfile(exerciseType: ExerciseType) {
+        val profile = ExerciseProfiles.getProfile(exerciseType)
+        formEvaluator = RuleBasedFormEvaluator(profile)
+        repTracker = RepTracker(profile)
     }
-
-    /**
-     * Start tracking an exercise
-     */
-    fun startExerciseTracking(exerciseType: ExerciseType) {
-        _state.value = _state.value.copy(
-            isTrackingExercise = true,
-            currentExercise = exerciseType,
-            exerciseState = ExerciseState(exerciseType = exerciseType)
-        )
-        startSession()
-    }
-
-    /**
-     * Stop tracking exercise
-     */
-    fun stopExerciseTracking() {
-        _state.value = _state.value.copy(
-            isTrackingExercise = false
-        )
-    }
-
-    /**
-     * Reset exercise tracking to try a different exercise
-     */
-    fun resetExerciseTracking() {
-        _state.value = _state.value.copy(
-            currentExercise = ExerciseType.UNKNOWN,
-            exerciseState = null,
-            isTrackingExercise = false
-        )
-    }
-
+    
     /**
      * Cleanup resources
      */
     override fun onCleared() {
         super.onCleared()
         poseDetector?.close()
-        Log.d(TAG, "PoseDetectionViewModel cleared")
+        Log.d(TAG, "ViewModel cleared")
+    }
+    
+    // ========== Backward Compatibility Methods ==========
+    // These methods exist for compatibility with old UI screens
+    // New code should use startTracking/stopTracking instead
+    
+    fun startSession() {
+        // Auto-start tracking for camera screens (backward compatibility)
+        if (!_state.value.isTrackingActive) {
+            startTracking(_state.value.selectedExercise)
+        }
+    }
+    
+    fun endSession() {
+        // Stub for backward compatibility
+        stopTracking()
+    }
+    
+    fun reset() {
+        // Stub for backward compatibility
+        resetReps()
+    }
+    
+    fun startExerciseTracking(exerciseType: ExerciseType) {
+        // Stub for backward compatibility
+        startTracking(exerciseType)
+    }
+    
+    fun stopExerciseTracking() {
+        // Stub for backward compatibility
+        stopTracking()
     }
 }
 
 /**
- * Factory for creating PoseDetectionViewModel
+ * Factory for creating ViewModel
  */
 class PoseDetectionViewModelFactory(private val context: Context) :
     androidx.lifecycle.ViewModelProvider.Factory {

@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.project_smartfit.domain.features.PostureFeatures
-import com.example.project_smartfit.presentation.screens.exercise.PoseDetectionState
+import com.example.project_smartfit.presentation.screens.exercise.ExerciseTrackingState
 import com.example.project_smartfit.presentation.theme.*
 
 /**
@@ -57,59 +57,13 @@ fun PostureMetricsCard(features: PostureFeatures, modifier: Modifier = Modifier)
 
 /**
  * Reusable feedback component
+ * NOTE: This uses old PostureFeatures - kept for backward compatibility
+ * Use ExerciseTrackingScreen for new exercise evaluation system
  */
 @Composable
-fun FeedbackSection(state: PoseDetectionState) {
-    if (state.postureFeatures == null) return
-
-    val features = state.postureFeatures!!
-    val warnings = mutableListOf<String>()
-
-    if (kotlin.math.abs(features.neckFlexion) > 20f) {
-        warnings.add("Straighten your neck - reduce forward lean")
-    }
-    if (features.shoulderLevel > 15f) {
-        warnings.add("Level your shoulders - maintain horizontal balance")
-    }
-    if (kotlin.math.abs(features.torsoLean) > 25f) {
-        warnings.add("Reduce forward trunk lean for better core stability")
-    }
-    if (features.spineAlignment < 60f) {
-        warnings.add("Improve spine alignment to prevent strain")
-    }
-
-    if (warnings.isNotEmpty()) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                "Improvements",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = Slate900
-            )
-            
-            warnings.forEach { msg ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(ErrorRed)
-                    )
-                    Text(
-                        msg,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Slate600
-                    )
-                }
-            }
-        }
-    }
+fun FeedbackSection(state: ExerciseTrackingState) {
+    // Stub for backward compatibility - old posture system not used in new exercise tracking
+    // Use FormFeedbackCard in ExerciseTrackingScreen instead
 }
 
 @Composable

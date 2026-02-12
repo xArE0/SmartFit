@@ -47,9 +47,6 @@ android {
     }
 
     // Add this for TensorFlow Lite
-    aaptOptions {
-        noCompress += "tflite"
-    }
 
     // Replace deprecated 'packagingOptions' with the new 'packaging' DSL.
     packaging {
@@ -107,4 +104,11 @@ dependencies {
 
     // Guava for CameraX compatibility
     implementation(libs.guava)
+
+    // MediaPipe Pose (33 landmarks for detailed form analysis)
+    implementation(libs.mediapipe.tasks.vision)
+
+    // Coroutines for background processing
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
 }

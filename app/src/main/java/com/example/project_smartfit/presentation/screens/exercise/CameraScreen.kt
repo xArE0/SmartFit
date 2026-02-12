@@ -2,25 +2,9 @@ package com.example.project_smartfit.presentation.screens.exercise
 
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,14 +12,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.ViewModelProvider
 import com.example.project_smartfit.presentation.components.CameraPreviewWithOverlay
-import com.example.project_smartfit.presentation.components.PoseStatistics
-import com.example.project_smartfit.presentation.components.PoseVisualization
+import com.example.project_smartfit.presentation.components.MediaPipePoseDrawer
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 
 /**
- * Generic camera screen for pose detection visualization
+ * Generic camera screen for MediaPipe pose detection visualization
  */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -81,9 +64,9 @@ fun CameraScreen(viewModel: PoseDetectionViewModel? = null) {
                     }
                 )
 
-                // Overlay Canvas for pose visualization
-                if (
-                    detectionState.currentPerson != null &&
+                // Overlay Canvas for MediaPipe pose skeleton
+                val currentPose = detectionState.currentPoseFrame
+                if (currentPose != null && 
                     previewViewRef != null &&
                     previewViewRef!!.width > 0 &&
                     previewViewRef!!.height > 0
@@ -94,34 +77,58 @@ fun CameraScreen(viewModel: PoseDetectionViewModel? = null) {
                             .zIndex(1f)
                     ) {
                         Canvas(
-                            modifier = Modifier
-                                .matchParentSize()
+                            modifier = Modifier.matchParentSize()
                         ) {
-                            with(PoseVisualization) {
-                                drawPoseWithFeatures(
-                                    person = detectionState.currentPerson!!,
-                                    features = detectionState.postureFeatures,
+                            with(MediaPipePoseDrawer) {
+                                // Extract error joints if available
+                                val errorJoints = detectionState.formResult?.errors
+                                    ?.flatMap { it.affectedJoints }
+                                    ?: emptyList()
+                                
+                                drawPoseWithFeedback(
+                                    poseFrame = currentPose,
                                     canvasWidth = size.width,
                                     canvasHeight = size.height,
-                                    bitmapWidth = detectionState.bitmapSize.first,
-                                    bitmapHeight = detectionState.bitmapSize.second,
-                                    highlightIssues = true
+                                    isFormCorrect = detectionState.isFormCorrect,
+                                    errorJoints = errorJoints,
+                                    minVisibility = 0.5f
                                 )
                             }
                         }
                     }
                 }
 
-                // Statistics overlay
-                PoseStatistics(
-                    person = detectionState.currentPerson,
-                    fps = detectionState.fps,
-                    elapsedTimeMs = detectionState.elapsedTimeMs,
-                    postureFeatures = detectionState.postureFeatures,
+                // Statistics overlay - top right
+                Card(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
-                )
+                        .zIndex(2f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "FPS: ${detectionState.fps}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = "Visibility: ${String.format("%.0f", detectionState.averageVisibility * 100)}%",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (detectionState.isTrackingActive) {
+                            Text(
+                                text = "Reps: ${detectionState.repCount}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             } else {
                 // Loading state
                 Box(
@@ -131,7 +138,7 @@ fun CameraScreen(viewModel: PoseDetectionViewModel? = null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Loading MoveNet model...")
+                        Text("Loading MediaPipe Pose model...")
                     }
                 }
             }
