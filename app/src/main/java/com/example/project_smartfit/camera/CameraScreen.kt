@@ -21,13 +21,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -54,12 +58,16 @@ import androidx.navigation.NavController
 import com.example.project_smartfit.ml.ExerciseClassifier
 import com.example.project_smartfit.ml.ExerciseFeedbackEngine
 import com.example.project_smartfit.ml.PoseLandmarkerHelper
+import com.example.project_smartfit.ml.RepCounter
+import com.example.project_smartfit.ml.VoiceFeedbackManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import java.util.concurrent.Executors
+
+// ── Phase of the workout ────────────────────────────────────────────
+private enum class WorkoutPhase { SCANNING, LOCKED_IN }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -95,27 +103,14 @@ private fun PermissionDeniedContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Text("Camera Permission Required", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(
-            text = "Camera Permission Required",
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "SmartFit needs camera access to detect your exercise form.",
-            color = Color.Gray,
-            fontSize = 14.sp,
+            "SmartFit needs camera access to detect your exercise form.",
+            color = Color.Gray, fontSize = 14.sp,
             modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
-        Button(onClick = onRequestPermission) {
-            Text("Grant Permission")
-        }
-        Button(
-            onClick = onBack,
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
-            Text("Go Back")
-        }
+        Button(onClick = onRequestPermission) { Text("Grant Permission") }
+        Button(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) { Text("Go Back") }
     }
 }
 
@@ -124,28 +119,39 @@ private fun CameraContent(navController: NavController) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // ── State ────────────────────────────────────────────────────────
+    // ── Core state ───────────────────────────────────────────────────
     var poseResult by remember { mutableStateOf<PoseLandmarkerResult?>(null) }
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
-    var classificationResult by remember {
-        mutableStateOf<ExerciseClassifier.ClassificationResult?>(null)
-    }
-    var feedbackState by remember {
-        mutableStateOf(ExerciseFeedbackEngine.Feedback.NONE)
-    }
-    var currentLandmarks by remember {
-        mutableStateOf<List<NormalizedLandmark>?>(null)
-    }
     var useFrontCamera by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // ── Workout flow state ───────────────────────────────────────────
+    var workoutPhase by remember { mutableStateOf(WorkoutPhase.SCANNING) }
+    var lockedExercise by remember { mutableStateOf("") }
+    var lockedDisplayLabel by remember { mutableStateOf("") }
+
+    // ── Scanning / convergence state ─────────────────────────────────
+    // Collect classification votes; lock in when one dominates
+    val classificationVotes = remember { mutableMapOf<String, Int>() }
+    var scanStartTimeMs by remember { mutableLongStateOf(0L) }
+    var currentLabel by remember { mutableStateOf("") }
+
+    // ── Workout state ────────────────────────────────────────────────
+    var repCount by remember { mutableIntStateOf(0) }
+    var holdSeconds by remember { mutableIntStateOf(0) }
+    var feedbackState by remember { mutableStateOf(ExerciseFeedbackEngine.Feedback.NONE) }
+    var feedbackFrameCounter by remember { mutableIntStateOf(0) }
+
     // ── ML helpers ───────────────────────────────────────────────────
     val exerciseClassifier = remember { ExerciseClassifier(context) }
+    val repCounter = remember { RepCounter() }
+    val voiceFeedback = remember { VoiceFeedbackManager(context) }
 
-    // Throttle feedback to avoid flickering — only update every N frames
-    var feedbackFrameCounter by remember { mutableIntStateOf(0) }
-    val FEEDBACK_UPDATE_INTERVAL = 10
+    val FEEDBACK_VOICE_INTERVAL = 15  // frames between voice feedback checks
+    val CONVERGENCE_THRESHOLD = 3     // votes needed to lock in
+    val MIN_SCAN_TIME_MS = 3_000L     // minimum 3 seconds scanning
+    val MAX_SCAN_TIME_MS = 10_000L    // force lock at 10 seconds if any votes
 
     val poseLandmarkerHelper = remember {
         PoseLandmarkerHelper(
@@ -156,30 +162,77 @@ private fun CameraContent(navController: NavController) {
                     imgHeight: Int,
                     imgWidth: Int
                 ) {
-                    // Update pose overlay immediately
                     poseResult = result
                     imageWidth = imgWidth
                     imageHeight = imgHeight
 
-                    // Feed landmarks to classifier
-                    val landmarks = result.landmarks().firstOrNull()
-                    if (landmarks != null && landmarks.isNotEmpty()) {
-                        currentLandmarks = landmarks
+                    val landmarks = result.landmarks().firstOrNull() ?: return
+                    if (landmarks.isEmpty()) return
 
-                        exerciseClassifier.addFrameAndClassify(landmarks) { classification ->
-                            classificationResult = classification
+                    when (workoutPhase) {
+                        WorkoutPhase.SCANNING -> {
+                            // Feed to classifier for exercise detection
+                            exerciseClassifier.addFrameAndClassify(landmarks) { classification ->
+                                if (classification.isConfident) {
+                                    val label = classification.label
+                                    currentLabel = classification.displayLabel
+
+                                    val votes = classificationVotes.getOrDefault(label, 0) + 1
+                                    classificationVotes[label] = votes
+
+                                    if (scanStartTimeMs == 0L) {
+                                        scanStartTimeMs = System.currentTimeMillis()
+                                    }
+
+                                    val elapsed = System.currentTimeMillis() - scanStartTimeMs
+
+                                    // Lock in if enough votes AND minimum time passed
+                                    val shouldLock = (votes >= CONVERGENCE_THRESHOLD && elapsed >= MIN_SCAN_TIME_MS) ||
+                                            (elapsed >= MAX_SCAN_TIME_MS && classificationVotes.isNotEmpty())
+
+                                    if (shouldLock) {
+                                        // Pick the label with most votes
+                                        val best = classificationVotes.maxByOrNull { it.value }
+                                        if (best != null) {
+                                            lockedExercise = best.key
+                                            lockedDisplayLabel = best.key.split(" ")
+                                                .joinToString(" ") { w -> w.replaceFirstChar { it.uppercaseChar() } }
+                                            workoutPhase = WorkoutPhase.LOCKED_IN
+                                            repCounter.reset()
+                                            voiceFeedback.announceExercise(lockedDisplayLabel)
+                                            Log.d("CameraScreen", "Locked in: $lockedExercise (${best.value} votes)")
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        // Throttled feedback
-                        val currentResult = classificationResult
-                        if (currentResult != null && currentResult.isConfident) {
+                        WorkoutPhase.LOCKED_IN -> {
+                            // Rep counting
+                            val newRep = repCounter.update(lockedExercise, landmarks)
+                            repCount = repCounter.repCount
+                            holdSeconds = repCounter.holdSeconds
+
+                            if (newRep) {
+                                voiceFeedback.announceRep(repCount)
+                            }
+
+                            // Plank hold announcements
+                            if (lockedExercise == "plank") {
+                                voiceFeedback.announceHold(holdSeconds)
+                            }
+
+                            // Throttled form feedback
                             feedbackFrameCounter++
-                            if (feedbackFrameCounter >= FEEDBACK_UPDATE_INTERVAL) {
+                            if (feedbackFrameCounter >= FEEDBACK_VOICE_INTERVAL) {
                                 feedbackFrameCounter = 0
-                                feedbackState = ExerciseFeedbackEngine.analyse(
-                                    currentResult.label,
-                                    landmarks
-                                )
+                                val fb = ExerciseFeedbackEngine.analyse(lockedExercise, landmarks)
+                                feedbackState = fb
+
+                                // Voice only the first tip (most important)
+                                if (!fb.isGoodForm && fb.tips.isNotEmpty()) {
+                                    voiceFeedback.speakTip(fb.tips.first())
+                                }
                             }
                         }
                     }
@@ -199,15 +252,15 @@ private fun CameraContent(navController: NavController) {
         onDispose {
             poseLandmarkerHelper.close()
             exerciseClassifier.close()
+            voiceFeedback.shutdown()
             cameraExecutor.shutdown()
         }
     }
 
+    // ── UI ───────────────────────────────────────────────────────────
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Camera Preview ───────────────────────────────────────────
-        // key(useFrontCamera) forces full recreation when camera flips,
-        // so the CameraProvider properly rebinds to the new lens.
+        // Camera Preview — key forces rebind on camera switch
         key(useFrontCamera) {
             AndroidView(
                 factory = { ctx ->
@@ -245,15 +298,11 @@ private fun CameraContent(navController: NavController) {
                         try {
                             cameraProvider.unbindAll()
                             cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                cameraSelector,
-                                preview,
-                                imageAnalysis
+                                lifecycleOwner, cameraSelector, preview, imageAnalysis
                             )
                         } catch (e: Exception) {
                             Log.e("CameraScreen", "Camera bind failed", e)
                         }
-
                     }, ContextCompat.getMainExecutor(ctx))
 
                     previewView
@@ -281,18 +330,12 @@ private fun CameraContent(navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
             }
-            IconButton(onClick = { useFrontCamera = !useFrontCamera }) {
-                Icon(
-                    Icons.Default.Cameraswitch,
-                    contentDescription = "Switch Camera",
-                    tint = Color.White
-                )
+            if (workoutPhase == WorkoutPhase.SCANNING) {
+                IconButton(onClick = { useFrontCamera = !useFrontCamera }) {
+                    Icon(Icons.Default.Cameraswitch, "Switch Camera", tint = Color.White)
+                }
             }
         }
 
@@ -300,139 +343,44 @@ private fun CameraContent(navController: NavController) {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(24.dp)
+                .padding(horizontal = 24.dp, vertical = 24.dp)
                 .fillMaxWidth()
                 .background(
-                    Color.Black.copy(alpha = 0.75f),
+                    Color.Black.copy(alpha = 0.80f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val result = classificationResult
-
-            if (result == null) {
-                // Still waiting for first classification — no frame counter, just a message
-                Text(
-                    text = "Perform an exercise…",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Model will identify your exercise live",
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
-            } else {
-                // ── Classification result ────────────────────────────
-                Text(
-                    text = result.displayLabel,
-                    color = if (result.isConfident) Color(0xFF00E676) else Color(0xFFFFD54F),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Confidence: ${(result.confidence * 100).toInt()}%",
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 14.sp
-                )
-
-                // Confidence bar
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .background(Color.DarkGray, RoundedCornerShape(3.dp))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(result.confidence.coerceIn(0f, 1f))
-                            .height(6.dp)
-                            .background(
-                                if (result.isConfident) Color(0xFF00E676)
-                                else Color(0xFFFFD54F),
-                                RoundedCornerShape(3.dp)
-                            )
-                    )
+            when (workoutPhase) {
+                // ── SCANNING PHASE ───────────────────────────────
+                WorkoutPhase.SCANNING -> {
+                    ScanningHud(currentLabel)
                 }
-
-                // ── Form feedback ────────────────────────────────────
-                if (result.isConfident && feedbackState.tips.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (feedbackState.isGoodForm) Color(0xFF1B5E20).copy(alpha = 0.6f)
-                                else Color(0xFFE65100).copy(alpha = 0.6f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(10.dp)
-                    ) {
-                        feedbackState.tips.forEach { tip ->
-                            Text(
-                                text = tip,
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(vertical = 1.dp)
-                            )
+                // ── LOCKED-IN PHASE ──────────────────────────────
+                WorkoutPhase.LOCKED_IN -> {
+                    WorkoutHud(
+                        exerciseName = lockedDisplayLabel,
+                        isPlank = lockedExercise == "plank",
+                        repCount = repCount,
+                        holdSeconds = holdSeconds,
+                        feedback = feedbackState,
+                        onEndExercise = {
+                            // Reset everything for a new scan
+                            workoutPhase = WorkoutPhase.SCANNING
+                            lockedExercise = ""
+                            lockedDisplayLabel = ""
+                            classificationVotes.clear()
+                            scanStartTimeMs = 0L
+                            currentLabel = ""
+                            repCount = 0
+                            holdSeconds = 0
+                            feedbackState = ExerciseFeedbackEngine.Feedback.NONE
+                            feedbackFrameCounter = 0
+                            exerciseClassifier.resetBuffer()
+                            repCounter.reset()
+                            voiceFeedback.reset()
                         }
-                    }
-                }
-
-                if (!result.isConfident) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Low confidence — try a clearer angle",
-                        color = Color(0xFFFFD54F),
-                        fontSize = 12.sp
-                    )
-                }
-
-                // Live indicator + reset
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color(0xFF00E676), RoundedCornerShape(4.dp))
-                    )
-                    Text(
-                        text = "  LIVE",
-                        color = Color(0xFF00E676),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        exerciseClassifier.resetBuffer()
-                        classificationResult = null
-                        feedbackState = ExerciseFeedbackEngine.Feedback.NONE
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.15f)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Reset",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "  Try Another Exercise",
-                        color = Color.White,
-                        fontSize = 13.sp
                     )
                 }
             }
@@ -451,5 +399,142 @@ private fun CameraContent(navController: NavController) {
                     .padding(8.dp)
             )
         }
+    }
+}
+
+// ── Scanning HUD ─────────────────────────────────────────────────────
+
+@Composable
+private fun ScanningHud(currentLabel: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(20.dp),
+            color = Color(0xFF64B5F6),
+            strokeWidth = 2.dp
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Detecting exercise…",
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+    if (currentLabel.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Seeing: $currentLabel",
+            color = Color(0xFF64B5F6),
+            fontSize = 13.sp
+        )
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Start your exercise to lock in",
+        color = Color.Gray,
+        fontSize = 11.sp
+    )
+}
+
+// ── Workout HUD ──────────────────────────────────────────────────────
+
+@Composable
+private fun WorkoutHud(
+    exerciseName: String,
+    isPlank: Boolean,
+    repCount: Int,
+    holdSeconds: Int,
+    feedback: ExerciseFeedbackEngine.Feedback,
+    onEndExercise: () -> Unit
+) {
+    // Exercise name
+    Text(
+        text = exerciseName,
+        color = Color(0xFF00E676),
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    // Rep count or hold timer
+    if (isPlank) {
+        val mins = holdSeconds / 60
+        val secs = holdSeconds % 60
+        Text(
+            text = "%d:%02d".format(mins, secs),
+            color = Color.White,
+            fontSize = 48.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Hold time",
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
+    } else {
+        Text(
+            text = "$repCount",
+            color = Color.White,
+            fontSize = 56.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Reps",
+            color = Color.Gray,
+            fontSize = 14.sp
+        )
+    }
+
+    // Form feedback
+    if (feedback.tips.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(10.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    if (feedback.isGoodForm) Color(0xFF1B5E20).copy(alpha = 0.6f)
+                    else Color(0xFFE65100).copy(alpha = 0.6f),
+                    RoundedCornerShape(8.dp)
+                )
+                .padding(10.dp)
+        ) {
+            feedback.tips.forEach { tip ->
+                Text(
+                    text = tip,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+            }
+        }
+    }
+
+    // End exercise button
+    Spacer(modifier = Modifier.height(14.dp))
+    Button(
+        onClick = onEndExercise,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFE53935)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            Icons.Default.Stop,
+            contentDescription = "End",
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "End Exercise",
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
