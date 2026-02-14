@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.project_smartfit.camera.CameraScreen
 import kotlinx.serialization.Serializable
 
 @Composable
@@ -32,6 +33,10 @@ fun Navigation() {
         composable<NavSignup> {
             Signup(navController)
         }
+
+        composable<NavExerciseCamera> {
+            CameraScreen(navController)
+        }
     }
 }
 
@@ -46,3 +51,7 @@ object NavLogin
 
 @Serializable
 object NavSignup
+
+@Serializable
+object NavExerciseCamera
+

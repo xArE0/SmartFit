@@ -47,6 +47,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Point Gradle to app/assets/ for ML model files
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("assets")
+        }
+    }
+
+    // Don't compress ML model files
+    androidResources {
+        noCompress += listOf("tflite", "task")
+    }
 }
 
 dependencies {
@@ -79,4 +91,21 @@ dependencies {
 
     //More Icons
     implementation(libs.androidx.material.icons.extended)
+
+    // CameraX
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
+
+    // MediaPipe Pose Landmarker
+    implementation(libs.mediapipe.tasks.vision)
+
+    // TFLite for exercise classification
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.select.tf.ops)
+
+    // Runtime permissions for Compose
+    implementation(libs.accompanist.permissions)
 }
+
