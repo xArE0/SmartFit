@@ -1,0 +1,89 @@
+{
+  "model_file": "exercise_classifier.tflite",
+  "labels_file": "labels.txt",
+  "model_size_kb": 482.3,
+  "input": {
+    "name": "serving_default_input_1:0",
+    "shape": [
+      1,
+      180,
+      66
+    ],
+    "dtype": "float32",
+    "description": "Sequence of 180 frames, each with 66 values (22 keypoints x 3 coords [x, y, z]). Coordinates are normalized 0-1."
+  },
+  "output": {
+    "name": "StatefulPartitionedCall:0",
+    "shape": [
+      1,
+      7
+    ],
+    "dtype": "float32",
+    "description": "Softmax probabilities for 7 exercise classes."
+  },
+  "classes": [
+    "hammer curl",
+    "lateral raise",
+    "leg raises",
+    "plank",
+    "push-up",
+    "russian twist",
+    "squat"
+  ],
+  "keypoint_order": [
+    "Nose",
+    "Left Eye",
+    "Right Eye",
+    "Left Ear",
+    "Right Ear",
+    "Left Shoulder",
+    "Right Shoulder",
+    "Left Elbow",
+    "Right Elbow",
+    "Left Wrist",
+    "Right Wrist",
+    "Left Hip",
+    "Right Hip",
+    "Left Knee",
+    "Right Knee",
+    "Left Ankle",
+    "Right Ankle",
+    "Left Heel",
+    "Right Heel",
+    "Left Foot Index",
+    "Right Foot Index",
+    "Nose (duplicate)"
+  ],
+  "mediapipe_landmark_indices": [
+    0,
+    2,
+    5,
+    7,
+    8,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    0
+  ],
+  "sequence_length": 180,
+  "coordinate_format": "normalized (0.0 - 1.0)",
+  "requires_flex_ops": true,
+  "flex_ops_used": [
+    "FlexTensorListReserve",
+    "FlexTensorListSetItem",
+    "FlexTensorListStack"
+  ]
+}
