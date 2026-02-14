@@ -3,13 +3,13 @@ package com.example.project_smartfit.presentation.components
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.project_smartfit.domain.model.LandmarkType
 import com.example.project_smartfit.domain.model.PoseFrame
 
 /**
  * MediaPipe Pose skeleton visualization
- * Draws 33 landmarks and connections for BlazePose topology
+ * Draws landmarks and connections for BlazePose topology
+ * Supports exercise-specific landmark filtering to reduce drawing overhead
  */
 object MediaPipePoseDrawer {
     
@@ -65,70 +65,10 @@ object MediaPipePoseDrawer {
     )
     
     /**
-     * Draw pose skeleton on canvas
-     */
-    fun DrawScope.drawPoseSkeleton(
-        poseFrame: PoseFrame,
-        canvasWidth: Float,
-        canvasHeight: Float,
-        showLandmarks: Boolean = true,
-        showConnections: Boolean = true,
-        landmarkColor: Color = Color.Green,
-        connectionColor: Color = Color.Cyan,
-        minVisibility: Float = 0.5f
-    ) {
-        // Draw connections first (so landmarks appear on top)
-        if (showConnections) {
-            POSE_CONNECTIONS.forEach { (start, end) ->
-                if (poseFrame.isVisible(start, minVisibility) && 
-                    poseFrame.isVisible(end, minVisibility)) {
-                    
-                    val startLandmark = poseFrame.getLandmark(start)
-                    val endLandmark = poseFrame.getLandmark(end)
-                    
-                    drawLine(
-                        color = connectionColor,
-                        start = Offset(
-                            x = startLandmark.x * canvasWidth,
-                            y = startLandmark.y * canvasHeight
-                        ),
-                        end = Offset(
-                            x = endLandmark.x * canvasWidth,
-                            y = endLandmark.y * canvasHeight
-                        ),
-                        strokeWidth = 4f
-                    )
-                }
-            }
-        }
-        
-        // Draw landmarks
-        if (showLandmarks) {
-            poseFrame.landmarks.forEachIndexed { index, landmark ->
-                if (landmark.visibility >= minVisibility) {
-                    val x = landmark.x * canvasWidth
-                    val y = landmark.y * canvasHeight
-                    
-                    // Draw outer circle (white border)
-                    drawCircle(
-                        color = Color.White,
-                        radius = 8f,
-                        center = Offset(x, y)
-                    )
-                    
-                    // Draw inner circle (colored)
-                    drawCircle(
-                        color = landmarkColor,
-                        radius = 6f,
-                        center = Offset(x, y)
-                    )
-                }
-            }
-        }
-    }
-    
-    /**
-     * Draw pose skeleton with form feedback colors
+     * Draw pose skeleton with form feedback colors and optional landmark filtering.
+     * 
+     * @param relevantIndices If non-null, only draw landmarks/connections where both
+     *                        endpoints are in this set. Pass null to draw all landmarks.
      */
     fun DrawScope.drawPoseWithFeedback(
         poseFrame: PoseFrame,
@@ -136,13 +76,20 @@ object MediaPipePoseDrawer {
         canvasHeight: Float,
         isFormCorrect: Boolean,
         errorJoints: List<String> = emptyList(),
-        minVisibility: Float = 0.5f
+        minVisibility: Float = 0.5f,
+        relevantIndices: Set<Int>? = null
     ) {
         val baseColor = if (isFormCorrect) Color.Green else Color.Yellow
         val errorColor = Color.Red
         
         // Draw connections
         POSE_CONNECTIONS.forEach { (start, end) ->
+            // Skip connections not relevant to this exercise
+            if (relevantIndices != null && 
+                (start.index !in relevantIndices || end.index !in relevantIndices)) {
+                return@forEach
+            }
+            
             if (poseFrame.isVisible(start, minVisibility) && 
                 poseFrame.isVisible(end, minVisibility)) {
                 
@@ -174,11 +121,16 @@ object MediaPipePoseDrawer {
         
         // Draw landmarks
         poseFrame.landmarks.forEachIndexed { index, landmark ->
+            // Skip landmarks not relevant to this exercise
+            if (relevantIndices != null && index !in relevantIndices) {
+                return@forEachIndexed
+            }
+            
             if (landmark.visibility >= minVisibility) {
                 val x = landmark.x * canvasWidth
                 val y = landmark.y * canvasHeight
                 
-                val landmarkType = LandmarkType.values().find { it.index == index }
+                val landmarkType = LandmarkType.fromIndex(index)
                 val hasError = landmarkType?.let { type ->
                     errorJoints.any { joint ->
                         type.name.contains(joint, ignoreCase = true)

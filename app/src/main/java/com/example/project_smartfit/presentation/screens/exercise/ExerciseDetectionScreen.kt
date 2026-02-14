@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.ViewModelProvider
 import com.example.project_smartfit.domain.model.ExerciseType
+import com.example.project_smartfit.domain.evaluation.ExerciseProfiles
+import com.example.project_smartfit.domain.evaluation.LandmarkGroup
 import com.example.project_smartfit.presentation.components.*
 import com.example.project_smartfit.presentation.theme.*
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -132,13 +134,18 @@ fun ExerciseDetectionScreen(
                                             ?.flatMap { it.affectedJoints }
                                             ?: emptyList()
                                         
+                                        // Filter landmarks based on exercise type
+                                        val profile = ExerciseProfiles.getProfile(exerciseType)
+                                        val relevantIndices = LandmarkGroup.indicesFor(profile.relevantLandmarkGroups)
+                                        
                                         drawPoseWithFeedback(
                                             poseFrame = currentPose,
                                             canvasWidth = size.width,
                                             canvasHeight = size.height,
                                             isFormCorrect = detectionState.isFormCorrect,
                                             errorJoints = errorJoints,
-                                            minVisibility = 0.5f
+                                            minVisibility = 0.5f,
+                                            relevantIndices = relevantIndices
                                         )
                                     }
                                 }

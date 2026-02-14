@@ -1,5 +1,7 @@
 package com.example.project_smartfit.domain.evaluation
 
+import com.example.project_smartfit.domain.model.RepPhase
+
 /**
  * Predefined exercise profiles with validated thresholds
  * Based on exercise science and biomechanics research
@@ -52,9 +54,10 @@ object ExerciseProfiles {
         hipDepthRatioThreshold = 1.0f,  // Hips should be at or below knee level
         
         // Rep detection
-        repTopAngleThreshold = 160f,    // Standing: knee angle > 160°
+        repTopAngleThreshold = 150f,    // Standing: knee angle > 150° (relaxed from 160°)
         repBottomAngleThreshold = 100f, // Bottom: knee angle < 100°
         repPrimaryJoint = RepJoint.KNEE,
+        startPhase = RepPhase.TOP,
         
         // Temporal rules
         minFramesInPosition = 3,
@@ -65,6 +68,15 @@ object ExerciseProfiles {
             "KNEES_CAVING_INWARD",
             "EXCESSIVE_FORWARD_LEAN",
             "BACK_ROUNDING"
+        ),
+        
+        // Performance: squats don't need face or hand landmarks
+        relevantLandmarkGroups = setOf(
+            LandmarkGroup.SHOULDERS,
+            LandmarkGroup.TORSO,
+            LandmarkGroup.HIPS,
+            LandmarkGroup.LEGS,
+            LandmarkGroup.FEET
         )
     )
     
@@ -106,9 +118,10 @@ object ExerciseProfiles {
         ),
         
         // Rep detection
-        repTopAngleThreshold = 160f,    // Arms extended: elbow > 160°
+        repTopAngleThreshold = 130f,    // Arms extended: elbow > 130° (relaxed from 150°)
         repBottomAngleThreshold = 90f,  // Bottom: elbow < 90°
         repPrimaryJoint = RepJoint.ELBOW,
+        startPhase = RepPhase.TOP,
         
         // Temporal rules
         minFramesInPosition = 2,
@@ -119,6 +132,16 @@ object ExerciseProfiles {
             "SAGGING_HIPS",
             "RAISED_HIPS",
             "ELBOWS_FLARING"
+        ),
+        
+        // Performance: pushups don't need face landmarks
+        relevantLandmarkGroups = setOf(
+            LandmarkGroup.SHOULDERS,
+            LandmarkGroup.ARMS,
+            LandmarkGroup.TORSO,
+            LandmarkGroup.HIPS,
+            LandmarkGroup.LEGS,
+            LandmarkGroup.FEET
         )
     )
     
@@ -135,27 +158,28 @@ object ExerciseProfiles {
         
         // Joint angles
         elbowAngleRange = AngleRange(
-            min = 30f,
-            max = 50f,
+            min = 10f,   // Tighter squeeze allowed (was 30f)
+            max = 65f,   // Easier to hit top position (was 50f)
             errorMessageBelow = "Over-curling",
             errorMessageAbove = "Incomplete curl - bring weight higher"
         ),
         
         // Posture
-        minTorsoUprightness = 85f,  // Torso should be nearly vertical
+        minTorsoUprightness = 70f,  // Torso should be nearly vertical (relaxed from 85f)
         
         // Wrist alignment
         wristAngleRange = AngleRange(
-            min = 160f,
-            max = 200f,  // Slight extension is okay
+            min = 0f,
+            max = 360f,  // Effectively disabled due to MediaPipe instability
             errorMessageBelow = "Wrist bending too much",
             errorMessageAbove = "Wrist hyperextended"
         ),
         
         // Rep detection
         repTopAngleThreshold = 50f,     // Top: elbow < 50° (flexed)
-        repBottomAngleThreshold = 160f, // Bottom: elbow > 160° (extended)
+        repBottomAngleThreshold = 130f, // Bottom: elbow > 130° (relaxed from 150°)
         repPrimaryJoint = RepJoint.ELBOW,
+        startPhase = RepPhase.BOTTOM,
         
         // Temporal rules
         minFramesInPosition = 2,
@@ -165,6 +189,14 @@ object ExerciseProfiles {
         criticalErrors = setOf(
             "SWINGING_BODY",
             "ELBOW_MOVEMENT"
+        ),
+        
+        // Performance: curls only need upper body
+        relevantLandmarkGroups = setOf(
+            LandmarkGroup.SHOULDERS,
+            LandmarkGroup.ARMS,
+            LandmarkGroup.TORSO,
+            LandmarkGroup.HIPS
         )
     )
     

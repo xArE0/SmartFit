@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
 
@@ -35,13 +34,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    kotlin {
+        jvmToolchain(11)
+    }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.6.11"
     }
 
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
     }
@@ -88,10 +88,10 @@ dependencies {
     //More Icons
     implementation(libs.androidx.material.icons.extended)
 
-    // TensorFlow Lite dependencies for MoveNet
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.support)
-    implementation(libs.tensorflow.lite.gpu)
+    // TensorFlow Lite dependencies - DEPRECATED, using MediaPipe instead
+    // implementation(libs.tensorflow.lite)
+    // implementation(libs.tensorflow.lite.support)
+    // implementation(libs.tensorflow.lite.gpu)
 
     // CameraX dependencies
     implementation(libs.camera.core)

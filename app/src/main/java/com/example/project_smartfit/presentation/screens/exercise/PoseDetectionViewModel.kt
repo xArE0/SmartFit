@@ -14,6 +14,7 @@ import com.example.project_smartfit.domain.detection.MediaPipePoseDetector
 import com.example.project_smartfit.domain.features.PoseFeatureExtractor
 import com.example.project_smartfit.domain.evaluation.RuleBasedFormEvaluator
 import com.example.project_smartfit.domain.evaluation.ExerciseProfiles
+import com.example.project_smartfit.domain.evaluation.FeedbackStabilizer
 import com.example.project_smartfit.domain.tracking.RepTracker
 import com.example.project_smartfit.domain.model.*
 
@@ -50,19 +51,7 @@ data class ExerciseTrackingState(
     // Debug mode
     val debugMode: Boolean = false,
     val debugAngles: Map<String, Float> = emptyMap()
-) {
-    // ========== Backward Compatibility Properties ==========
-    // These properties exist for compatibility with old UI screens
-    // that reference the old PoseDetectionState structure
-    
-    val currentPerson: com.example.project_smartfit.domain.detection.Person? = null
-    val postureFeatures: com.example.project_smartfit.domain.features.PostureFeatures? = null
-    val elapsedTimeMs: Long = 0L
-    val bitmapSize: Pair<Int, Int> = Pair(640, 480)
-    val exerciseState: com.example.project_smartfit.domain.model.ExerciseState? = null
-    val isTrackingExercise: Boolean = isTrackingActive
-    val currentExercise: ExerciseType = selectedExercise
-}
+)
 
 /**
  * ViewModel for real-time exercise form evaluation
@@ -82,6 +71,7 @@ class PoseDetectionViewModel(private val context: Context) : ViewModel() {
     private var featureExtractor: PoseFeatureExtractor? = null
     private var formEvaluator: RuleBasedFormEvaluator? = null
     private var repTracker: RepTracker? = null
+    private val feedbackStabilizer = FeedbackStabilizer()
     
     // Performance tracking
     private var frameCount = 0
@@ -239,14 +229,44 @@ class PoseDetectionViewModel(private val context: Context) : ViewModel() {
             emptyMap()
         }
         
-        // Build updated state
+        // Step 5: Stabilize feedback (prevent flickering)
+        val stabilized = feedbackStabilizer.process(trackedResult)
+        
+        // Check if user has started the exercise (entered start phase)
+        val hasStarted = repTracker?.hasStarted() == true
+        
+        val finalIsCorrect: Boolean
+        val finalErrors: List<String>
+        val finalFeedback: String?
+        
+        if (!hasStarted) {
+            // User hasn't entered start position yet
+            finalIsCorrect = true // Don't show red error state
+            finalErrors = emptyList()
+            
+            // Generate contextual "Start" message
+            val profile = ExerciseProfiles.getProfile(_state.value.selectedExercise)
+            finalFeedback = when (_state.value.selectedExercise) {
+                ExerciseType.SQUAT -> "Stand up straight to start"
+                ExerciseType.PUSHUP -> "Get into plank position"
+                ExerciseType.DUMBBELL_CURL -> "Straighten arms to start"
+                else -> "Get into starting position"
+            }
+        } else {
+            // Normal feedback
+            finalIsCorrect = stabilized.isCorrect
+            finalErrors = stabilized.errors.map { it.message }
+            finalFeedback = stabilized.primaryFeedback
+        }
+        
+        // Build updated state with stabilized feedback
         return _state.value.copy(
             currentPoseFrame = poseFrame,
             currentFeatures = features,
             formResult = trackedResult,
-            isFormCorrect = trackedResult.isCorrectForm,
-            currentErrors = trackedResult.errors.map { it.message },
-            primaryFeedback = trackedResult.getPrimaryError(),
+            isFormCorrect = finalIsCorrect,
+            currentErrors = finalErrors,
+            primaryFeedback = finalFeedback,
             repCount = repTracker?.getRepCount() ?: 0,
             currentPhase = trackedResult.repPhase,
             fps = fps,
@@ -291,6 +311,7 @@ class PoseDetectionViewModel(private val context: Context) : ViewModel() {
     fun startTracking(exerciseType: ExerciseType) {
         updateExerciseProfile(exerciseType)
         repTracker?.reset()
+        feedbackStabilizer.reset()
         frameCount = 0
         lastFpsTimestamp = System.currentTimeMillis()
         
@@ -320,6 +341,7 @@ class PoseDetectionViewModel(private val context: Context) : ViewModel() {
      */
     fun resetReps() {
         repTracker?.reset()
+        feedbackStabilizer.reset()
         _state.value = _state.value.copy(
             repCount = 0,
             currentPhase = RepPhase.UNKNOWN

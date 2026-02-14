@@ -14,24 +14,12 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.example.project_smartfit.domain.model.ExerciseType
-import com.example.project_smartfit.domain.model.ExerciseState
-import com.example.project_smartfit.presentation.theme.*
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -67,89 +55,6 @@ fun CameraPreviewWithOverlay(
             )
         }
     )
-}
-
-/**
- * Exercise statistics overlay showing rep count and scoring
- */
-@Composable
-fun ExerciseStatsOverlay(
-    exerciseType: ExerciseType,
-    exerciseState: ExerciseState?,
-    fps: Int,
-    modifier: Modifier = Modifier
-) {
-    GlassCard(
-        variant = GlassCardVariant.Dark,
-        cornerRadius = 16.dp,
-        modifier = modifier.width(160.dp)
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Header
-            Text(
-                text = exerciseType.name.replace("_", " "),
-                style = MaterialTheme.typography.labelSmall,
-                color = GovGreenLight,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Rep count
-            if (exerciseState != null && exerciseType != ExerciseType.PLANK) {
-                Column {
-                    Text(
-                        text = "REPS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Slate400
-                    )
-                    Text(
-                        text = exerciseState.repCount.toString(),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White
-                    )
-                }
-            } else if (exerciseType == ExerciseType.PLANK) {
-                // Timer could go here for plank
-                Text(
-                    text = "STABLE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = GovBlueLight
-                )
-            }
-
-            // Current state tag
-            if (exerciseState != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Slate700.copy(alpha = 0.5f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = exerciseState.lastFrameState.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Slate300
-                    )
-                }
-            }
-
-            // FPS metric
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = "$fps FPS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Slate500,
-                    fontSize = 10.sp
-                )
-            }
-        }
-    }
 }
 
 fun startCamera(

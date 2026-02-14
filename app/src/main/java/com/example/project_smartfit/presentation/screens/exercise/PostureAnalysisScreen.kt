@@ -21,6 +21,7 @@ import androidx.navigation.NavController
 import com.example.project_smartfit.presentation.components.*
 import com.example.project_smartfit.presentation.theme.*
 import com.example.project_smartfit.presentation.screens.exercise.CameraScreen
+import com.example.project_smartfit.domain.model.FeatureVector
 
 /**
  * Posture Analysis Report Screen
@@ -99,7 +100,7 @@ fun PostureAnalysisScreen(navController: NavController) {
                 }
 
                 // Stats / Analysis Section
-                if (state.postureFeatures != null) {
+                if (state.currentFeatures != null) {
                     GlassCard(
                         variant = GlassCardVariant.Light,
                         cornerRadius = 24.dp,
@@ -113,20 +114,37 @@ fun PostureAnalysisScreen(navController: NavController) {
                                 color = Slate900
                             )
                             
-                            PostureAnalysisReport(
-                                features = state.postureFeatures!!,
+                            // Display key metrics from current features
+                            PostureMetricsDisplay(
+                                features = state.currentFeatures!!,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
 
-                    // Recommendations
-                    GlassCard(
-                        variant = GlassCardVariant.Accent,
-                        cornerRadius = 24.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RecommendationsCard(features = state.postureFeatures!!)
+                    // Recommendations based on form errors
+                    if (state.currentErrors.isNotEmpty()) {
+                        GlassCard(
+                            variant = GlassCardVariant.Accent,
+                            cornerRadius = 24.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Recommendations",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                                state.currentErrors.forEach { error ->
+                                    Text(
+                                        "• $error",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Slate700
+                                    )
+                                }
+                            }
+                        }
                     }
                 } else {
                     // Loading State inside a card
@@ -158,5 +176,66 @@ fun PostureAnalysisScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PostureMetricsDisplay(
+    features: FeatureVector,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Overall visibility
+        MetricRow(
+            label = "Visibility",
+            value = "${(features.overallVisibility * 100).toInt()}%",
+            isGood = features.overallVisibility > 0.7f
+        )
+
+        // Back angle
+        if (features.backAngle > 0) {
+            MetricRow(
+                label = "Back Alignment",
+                value = "${features.backAngle.toInt()}°",
+                isGood = features.backAngle > 150f
+            )
+        }
+
+        // Hip depth (for squats)
+        if (features.hipDepthRatio > 0) {
+            MetricRow(
+                label = "Hip Depth",
+                value = String.format("%.2f", features.hipDepthRatio),
+                isGood = features.hipDepthRatio < 0.8f
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetricRow(
+    label: String,
+    value: String,
+    isGood: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate700
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (isGood) Color(0xFF10B981) else Color(0xFFEF4444)
+        )
     }
 }

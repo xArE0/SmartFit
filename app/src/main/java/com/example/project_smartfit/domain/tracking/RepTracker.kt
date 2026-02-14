@@ -24,6 +24,9 @@ class RepTracker(
     // Track if we've completed bottom phase (required for rep)
     private var hasReachedBottom = false
     
+    // Track if user has entered the starting position
+    private var hasEnteredStartPhase = false
+    
     /**
      * Process a feature vector and update rep tracking
      * Returns updated FormEvaluationResult with rep phase and count
@@ -61,6 +64,11 @@ class RepTracker(
             // Track bottom phase
             if (currentPhase == RepPhase.BOTTOM) {
                 hasReachedBottom = true
+            }
+            
+            // Track start phase entry
+            if (!hasEnteredStartPhase && currentPhase == profile.startPhase) {
+                hasEnteredStartPhase = true
             }
             
             // Count rep when returning to top after reaching bottom
@@ -119,6 +127,7 @@ class RepTracker(
         repCount = 0
         currentPhase = RepPhase.UNKNOWN
         hasReachedBottom = false
+        hasEnteredStartPhase = false
         angleBuffer.clear()
         framesSincePhaseChange = 0
     }
@@ -127,4 +136,9 @@ class RepTracker(
      * Get current phase
      */
     fun getCurrentPhase(): RepPhase = currentPhase
+    
+    /**
+     * Check if user has entered the start phase
+     */
+    fun hasStarted(): Boolean = hasEnteredStartPhase
 }

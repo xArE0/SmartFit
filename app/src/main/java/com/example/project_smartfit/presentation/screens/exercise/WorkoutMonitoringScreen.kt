@@ -5,13 +5,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -26,12 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import com.example.project_smartfit.presentation.components.BottomNavBar
 import com.example.project_smartfit.presentation.components.FeedbackSection
-import com.example.project_smartfit.presentation.components.PostureMetricsCard
 
 /**
  * Workout Monitoring Screen
@@ -95,8 +99,34 @@ fun WorkoutMonitoringScreen(navController: NavController) {
                 }
 
                 // Posture metrics
-                if (state.postureFeatures != null) {
-                    PostureMetricsCard(features = state.postureFeatures!!)
+                if (state.currentFeatures != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "Form Status",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                if (state.isFormCorrect) "✓ Form is correct" else "⚠ Form needs adjustment",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (state.isFormCorrect) Color(0xFF10B981) else Color(0xFFEF4444)
+                            )
+                            if (state.primaryFeedback != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    state.primaryFeedback!!,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Feedback section

@@ -59,7 +59,7 @@ fun QuickPoseCheckScreen(navController: NavController) {
         CameraScreen(viewModel = vm)
 
         // Large score overlay
-        if (state.postureFeatures != null) {
+        if (state.currentPoseFrame != null) {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -72,18 +72,18 @@ fun QuickPoseCheckScreen(navController: NavController) {
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Detected Joints",
+                        text = "Visibility Score",
                         fontSize = 16.sp,
                         color = Color.LightGray
                     )
                     Text(
-                        text = "${state.postureFeatures!!.detectedJointCount}",
+                        text = "${(state.averageVisibility * 100).toInt()}%",
                         fontSize = 48.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Cyan
+                        color = if (state.averageVisibility > 0.7f) Color.Cyan else Color.Yellow
                     )
                     Text(
-                        text = "joints detected",
+                        text = "pose confidence",
                         fontSize = 14.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 8.dp)
