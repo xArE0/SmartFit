@@ -107,5 +107,8 @@ dependencies {
 
     // Runtime permissions for Compose
     implementation(libs.accompanist.permissions)
+
+    // Gson for local JSON persistence
+    implementation("com.google.code.gson:gson:2.11.0")
 }
 

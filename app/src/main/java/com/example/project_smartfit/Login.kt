@@ -263,6 +263,26 @@ fun Login(
                                             if (doc.getString("password") == password) {
                                                 val userId = doc.getString("userId") ?: ""
                                                 sessionManager.saveSession(userId, email)
+
+                                                // Fetch and cache user profile for plan generator
+                                                FirebaseFirestore.getInstance()
+                                                    .collection("UserMetrics")
+                                                    .document(userId)
+                                                    .get()
+                                                    .addOnSuccessListener { metricsDoc ->
+                                                        if (metricsDoc.exists()) {
+                                                            sessionManager.saveProfile(
+                                                                name = metricsDoc.getString("name") ?: "",
+                                                                gender = metricsDoc.getString("gender") ?: "",
+                                                                age = metricsDoc.getString("age") ?: "",
+                                                                weight = metricsDoc.getString("weight") ?: "",
+                                                                height = metricsDoc.getString("height") ?: "",
+                                                                fitnessLevel = metricsDoc.getString("fitnessLevel") ?: "Beginner",
+                                                                fitnessGoal = metricsDoc.getString("fitnessGoal") ?: "General Fitness"
+                                                            )
+                                                        }
+                                                    }
+
                                                 navController.navigate(NavHomepage) {
                                                     popUpTo(NavLogin) { inclusive = true }
                                                 }
