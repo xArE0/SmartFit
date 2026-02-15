@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
 
@@ -86,6 +87,9 @@ private val SuccessGreen = Color(0xFF4ADE80)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Signup(navController: NavController) {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager.getInstance(context) }
+
     var step by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
 
@@ -93,6 +97,7 @@ fun Signup(navController: NavController) {
     var name by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("") }
     var fitnessLevel by remember { mutableStateOf("") }
+    var fitnessGoal by remember { mutableStateOf("") }
 
     // Step 3 fields
     var age by remember { mutableStateOf("") }
@@ -105,6 +110,7 @@ fun Signup(navController: NavController) {
 
     val fitnessLevels = listOf("Beginner", "Intermediate", "Advanced")
     val genders = listOf("Male", "Female", "Other")
+    val fitnessGoals = listOf("Fat Loss", "Muscle Gain", "Strength", "General Fitness")
 
     Box(
         modifier = Modifier
@@ -193,11 +199,14 @@ fun Signup(navController: NavController) {
                         onGenderChange = { gender = it },
                         fitnessLevel = fitnessLevel,
                         onFitnessLevelChange = { fitnessLevel = it },
+                        fitnessGoal = fitnessGoal,
+                        onFitnessGoalChange = { fitnessGoal = it },
                         genders = genders,
                         fitnessLevels = fitnessLevels,
+                        fitnessGoals = fitnessGoals,
                         message = message,
                         onNext = {
-                            if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank()) {
+                            if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank() && fitnessGoal.isNotBlank()) {
                                 step = 2
                                 message = ""
                             } else {
@@ -263,6 +272,7 @@ fun Signup(navController: NavController) {
                                     "name" to name,
                                     "gender" to gender,
                                     "fitnessLevel" to fitnessLevel,
+                                    "fitnessGoal" to fitnessGoal,
                                     "age" to age,
                                     "weight" to weight,
                                     "height" to height
@@ -276,8 +286,21 @@ fun Signup(navController: NavController) {
                                             .document(userId)
                                             .set(metrics)
                                             .addOnSuccessListener {
+                                                // Cache profile locally for plan generator
+                                                sessionManager.saveSession(userId, email)
+                                                sessionManager.saveProfile(
+                                                    name = name,
+                                                    gender = gender,
+                                                    age = age,
+                                                    weight = weight,
+                                                    height = height,
+                                                    fitnessLevel = fitnessLevel,
+                                                    fitnessGoal = fitnessGoal
+                                                )
                                                 message = "Account created successfully!"
-                                                navController.navigate(NavLogin)
+                                                navController.navigate(NavHomepage) {
+                                                    popUpTo(NavSignup) { inclusive = true }
+                                                }
                                             }
                                             .addOnFailureListener {
                                                 message = "Failed to save metrics: ${it.message}"
@@ -511,16 +534,19 @@ private fun PersonalInfoStep(
     onGenderChange: (String) -> Unit,
     fitnessLevel: String,
     onFitnessLevelChange: (String) -> Unit,
+    fitnessGoal: String,
+    onFitnessGoalChange: (String) -> Unit,
     genders: List<String>,
     fitnessLevels: List<String>,
+    fitnessGoals: List<String>,
     message: String,
     onNext: () -> Unit,
-    onBack: () -> Unit  // Add back handler
+    onBack: () -> Unit
 ) {
     GlassCardStyle(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp)
+            .heightIn(min = 480.dp, max = 700.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
@@ -659,6 +685,55 @@ private fun PersonalInfoStep(
                             onClick = {
                                 onFitnessLevelChange(level)
                                 fitnessExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Fitness Goal dropdown
+            var goalExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = goalExpanded,
+                onExpandedChange = { goalExpanded = !goalExpanded }
+            ) {
+                OutlinedTextField(
+                    value = fitnessGoal,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Fitness Goal") },
+                    leadingIcon = {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryGreen)
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = goalExpanded) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                        focusedLabelColor = PrimaryGreen,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedLeadingIconColor = PrimaryGreen,
+                        unfocusedLeadingIconColor = Color.White,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                ExposedDropdownMenu(
+                    expanded = goalExpanded,
+                    onDismissRequest = { goalExpanded = false },
+                    modifier = Modifier.background(Color(0xFF2A2A2A))
+                ) {
+                    fitnessGoals.forEach { goal ->
+                        DropdownMenuItem(
+                            text = { Text(goal, color = Color.White) },
+                            onClick = {
+                                onFitnessGoalChange(goal)
+                                goalExpanded = false
                             }
                         )
                     }
