@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -256,6 +257,105 @@ fun Homepage(
                             fontSize = 13.sp,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                    }
+                }
+            }
+
+            // ── Active Challenges ────────────────────────────────────
+            if (enrolledChallenges.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(28.dp))
+
+                Text(
+                    "Active Challenges",
+                    color = TextWhite,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                enrolledChallenges.forEach { challenge ->
+                    val progress = challengeRepo.getProgress(challenge.id)
+                    val currentDay = challengeRepo.getCurrentDay(challenge.id)
+                    val streak = challengeRepo.getStreak(challenge.id)
+                    val diffColor = when (challenge.difficulty) {
+                        "Beginner" -> Color(0xFF4CAF50)
+                        "Intermediate" -> Color(0xFFFF9800)
+                        else -> Color(0xFFF44336)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(CardBg, NeonGreen.copy(alpha = 0.06f))
+                                )
+                            )
+                            .clickable {
+                                navController.navigate(NavChallengeDetail(challenge.id))
+                            }
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        challenge.name,
+                                        color = TextWhite,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        challenge.difficulty,
+                                        color = diffColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Text(
+                                    "Day $currentDay/${challenge.totalDays}",
+                                    color = NeonGreen,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            LinearProgressIndicator(
+                                progress = { progress.coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = NeonGreen,
+                                trackColor = Color.DarkGray,
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                if (streak > 0) {
+                                    Text(
+                                        "🔥 $streak day streak",
+                                        color = Color(0xFFFF9800),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Text(
+                                    "${(progress * 100).toInt()}% complete",
+                                    color = TextGray,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
             }

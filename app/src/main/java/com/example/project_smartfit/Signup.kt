@@ -1,56 +1,68 @@
 package com.example.project_smartfit
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,988 +70,596 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
-import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 import java.util.UUID
 
-// Update color scheme for dark background
-private val PrimaryGreen = Color(0xFF4ADE80)  // Brighter green
-private val SecondaryOrange = Color(0xFFFF9F5A)  // Brighter orange
-private val AccentBlue = Color(0xFF60A5FA)  // Brighter blue
-private val TextLight = Color.White
-private val TextSecondary = Color.White.copy(alpha = 0.7f)
-private val ErrorRed = Color(0xFFFF5757)
-private val SuccessGreen = Color(0xFF4ADE80)
+// ── Shared design tokens ───────────────────────────────────────────────
+private val SBgDark      = Color(0xFF0A0A0F)
+private val SCardBg      = Color(0xFF161622).copy(alpha = 0.90f)
+private val SCardBorder  = Color(0xFF00E676).copy(alpha = 0.25f)
+private val SNeonGreen   = Color(0xFF00E676)
+private val SNeonSub     = Color(0xFF69F0AE)
+private val SSlateLabel  = Color(0xFF94A3B8)
+private val SSlateBorder = Color(0xFF334155)
+private val SSlate700    = Color(0xFF334155)
+private val SSlate900    = Color(0xFF0F172A)
+private val SSlate400    = Color(0xFF94A3B8)
+private val SErrorRed    = Color(0xFFFF6B6B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Signup(navController: NavController) {
-    val context = LocalContext.current
-    val sessionManager = remember { SessionManager.getInstance(context) }
+    var step      by remember { mutableIntStateOf(0) }
+    var message   by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
 
-    var step by remember { mutableIntStateOf(0) }
-    var message by remember { mutableStateOf("") }
-
-    // Step 2 fields
-    var name by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("") }
+    // Step data
+    var name         by remember { mutableStateOf("") }
+    var gender       by remember { mutableStateOf("") }
     var fitnessLevel by remember { mutableStateOf("") }
-    var fitnessGoal by remember { mutableStateOf("") }
-
-    // Step 3 fields
-    var age by remember { mutableStateOf("") }
-    var weight by remember { mutableStateOf("") }
-    var height by remember { mutableStateOf("") }
-
-    // Step 4 fields
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var age          by remember { mutableStateOf("") }
+    var weight       by remember { mutableStateOf("") }
+    var height       by remember { mutableStateOf("") }
+    var email        by remember { mutableStateOf("") }
+    var password     by remember { mutableStateOf("") }
 
     val fitnessLevels = listOf("Beginner", "Intermediate", "Advanced")
-    val genders = listOf("Male", "Female", "Other")
-    val fitnessGoals = listOf("Fat Loss", "Muscle Gain", "Strength", "General Fitness")
+    val genders       = listOf("Male", "Female", "Other")
 
+    // Entrance animation
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(100)
+        isVisible = true
+    }
+
+    // Full background gradient
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Crossfade animation
-        Crossfade(
-            targetState = step,
-            animationSpec = tween(
-                durationMillis = 800,  // Increase duration for smoother transition
-                easing = LinearEasing  // Use linear easing for smoother crossfade
-            ),
-            modifier = Modifier.zIndex(0f),
-            label = "background"
-        ) { currentStep ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)  // Ensure black background during transition
-            ) {
-                Image(
-                    painter = painterResource(
-                        id = when (currentStep) {
-                            0 -> R.drawable.bg1
-                            1 -> R.drawable.bg2
-                            2 -> R.drawable.bg3
-                            3 -> R.drawable.bg4
-                            else -> R.drawable.bg
-                        }
-                    ),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(SBgDark, Color(0xFF0D1B2A), SBgDark)
                 )
-            }
-        }
+            )
+    ) {
+        // Aurora glow
+        Box(
+            modifier = Modifier
+                .size(300.dp)
+                .align(Alignment.TopStart)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(SNeonGreen.copy(alpha = 0.08f), Color.Transparent)
+                    )
+                )
+        )
 
-        // 2. Gradient overlay for better readability (middle layer)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.3f),
-                            Color.Black.copy(alpha = 0.5f),
-                            Color.Black.copy(alpha = 0.3f)
-                        )
-                    )
-                )
-                .zIndex(1f)
-        )
-
-        // 3. Main content (highest layer)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp)
-                .zIndex(2f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Progress indicator always at the top
-            if (step > 0) {
-                ProgressIndicator(currentStep = step, totalSteps = 3)
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Center the island in the remaining space
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = true),
-                contentAlignment = Alignment.Center
-            ) {
-                when (step) {
-                    0 -> WelcomeStep(
-                        onNext = { step = 1 },
-                        onLoginClick = { navController.navigate(NavLogin) }
-                    )
-                    1 -> PersonalInfoStep(
-                        name = name,
-                        onNameChange = { name = it },
-                        gender = gender,
-                        onGenderChange = { gender = it },
-                        fitnessLevel = fitnessLevel,
-                        onFitnessLevelChange = { fitnessLevel = it },
-                        fitnessGoal = fitnessGoal,
-                        onFitnessGoalChange = { fitnessGoal = it },
-                        genders = genders,
-                        fitnessLevels = fitnessLevels,
-                        fitnessGoals = fitnessGoals,
-                        message = message,
-                        onNext = {
-                            if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank() && fitnessGoal.isNotBlank()) {
-                                step = 2
-                                message = ""
-                            } else {
-                                message = "Please fill all fields"
-                            }
-                        },
-                        onBack = { if (step > 0) step-- }
-                    )
-                    2 -> MetricsStep(
-                        age = age,
-                        onAgeChange = { age = it.filter { c -> c.isDigit() } },
-                        weight = weight,
-                        onWeightChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
-                        height = height,
-                        onHeightChange = { height = it.filter { c -> c.isDigit() || c == '.' } },
-                        message = message,
-                        onNext = {
-                            if (age.isNotBlank() && weight.isNotBlank() && height.isNotBlank()) {
-                                if (!ValidationUtils.isValidAge(age)) {
-                                    message = "Please enter a valid age (5-120)"
-                                    return@MetricsStep
-                                }
-                                if (!ValidationUtils.isValidWeight(weight)) {
-                                    message = "Please enter a realistic weight (20-400 kg)"
-                                    return@MetricsStep
-                                }
-                                if (!ValidationUtils.isValidHeight(height)) {
-                                    message = "Please enter a realistic height (50-250 cm)"
-                                    return@MetricsStep
-                                }
-                                step = 3
-                                message = ""
-                            } else {
-                                message = "Please fill all fields"
-                            }
-                        },
-                        onBack = { if (step > 1) step-- }
-                    )
-                    3 -> AccountStep(
-                        email = email,
-                        onEmailChange = { email = it },
-                        password = password,
-                        onPasswordChange = { password = it },
-                        message = message,
-                        onSignUp = {
-                            if (email.isNotBlank() && password.isNotBlank()) {
-                                if (!ValidationUtils.isValidEmail(email)) {
-                                    message = "Please enter a valid email"
-                                    return@AccountStep
-                                }
-                                if (!ValidationUtils.isStrongPassword(password)) {
-                                    message = "Password must be at least 8 characters, include upper and lower case, a digit, and a special character"
-                                    return@AccountStep
-                                }
-                                val userId = UUID.randomUUID().toString()
-                                val user = hashMapOf(
-                                    "userId" to userId,
-                                    "email" to email,
-                                    "password" to password
-                                )
-                                val metrics = hashMapOf(
-                                    "userId" to userId,
-                                    "name" to name,
-                                    "gender" to gender,
-                                    "fitnessLevel" to fitnessLevel,
-                                    "fitnessGoal" to fitnessGoal,
-                                    "age" to age,
-                                    "weight" to weight,
-                                    "height" to height
-                                )
-                                val db = FirebaseFirestore.getInstance()
-                                db.collection("UserAuth")
-                                    .document(userId)
-                                    .set(user)
-                                    .addOnSuccessListener {
-                                        db.collection("UserMetrics")
-                                            .document(userId)
-                                            .set(metrics)
-                                            .addOnSuccessListener {
-                                                // Cache profile locally for plan generator
-                                                sessionManager.saveSession(userId, email)
-                                                sessionManager.saveProfile(
-                                                    name = name,
-                                                    gender = gender,
-                                                    age = age,
-                                                    weight = weight,
-                                                    height = height,
-                                                    fitnessLevel = fitnessLevel,
-                                                    fitnessGoal = fitnessGoal
-                                                )
-                                                message = "Account created successfully!"
-                                                navController.navigate(NavHomepage) {
-                                                    popUpTo(NavSignup) { inclusive = true }
-                                                }
-                                            }
-                                            .addOnFailureListener {
-                                                message = "Failed to save metrics: ${it.message}"
-                                            }
-                                    }
-                                    .addOnFailureListener {
-                                        message = "Signup failed: ${it.message}"
-                                    }
-                            } else {
-                                message = "Please enter email and password"
-                            }
-                        },
-                        onLoginClick = { navController.navigate(NavLogin) },
-                        onBack = { if (step > 2) step-- }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProgressIndicator(currentStep: Int, totalSteps: Int) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Step $currentStep of $totalSteps",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            repeat(totalSteps) { index ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(
-                            if (index < currentStep) PrimaryGreen else Color.White.copy(alpha = 0.3f)
-                        )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WelcomeStep(
-    onNext: () -> Unit,
-    onLoginClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .heightIn(min = 380.dp, max = 500.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.1f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.2f),
-                            Color.White.copy(alpha = 0.05f)
-                        )
-                    )
-                )
-                .border(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.5f),
-                            Color.White.copy(alpha = 0.1f)
-                        )
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                )
-        ) {
-            // Update text colors in the content
-            Column(
+                    .padding(vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 32.dp, vertical = 40.dp)
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.FitnessCenter,
-                    contentDescription = null,
-                    tint = PrimaryGreen,
-                    modifier = Modifier.size(72.dp)
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "Welcome to SmartFit!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = TextLight,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Transform your fitness journey with personalized workouts and tracking",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 24.sp
-                )
+
+                // ── Header ───────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(tween(600)) + slideInVertically(tween(600))
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (step == 0) "Welcome to SmartFit" else "Create Account",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (step == 0) "Transform your posture with AI" else "Join us for a healthier lifestyle",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SSlateLabel,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(32.dp))
 
-                Button(
-                    onClick = onNext,
+                // ── Step indicator ───────────────────────────────────
+                if (step > 0) {
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(tween(600, delayMillis = 200)) + scaleIn(tween(600, delayMillis = 200))
+                    ) {
+                        SignupStepIndicator(currentStep = step - 1, totalSteps = 3)
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+
+                // ── Card with steps ──────────────────────────────────
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryGreen
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                        .background(SCardBg, RoundedCornerShape(20.dp))
+                        .padding(1.dp)
+                        .background(SCardBg, RoundedCornerShape(20.dp))
+                        .padding(24.dp)
                 ) {
-                    Text(
-                        text = "Get Started",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    AnimatedContent(
+                        targetState = step,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                (slideInHorizontally { width -> width } + fadeIn()) togetherWith
+                                        (slideOutHorizontally { width -> -width } + fadeOut())
+                            } else {
+                                (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
+                                        (slideOutHorizontally { width -> width } + fadeOut())
+                            }.using(SizeTransform(clip = false))
+                        },
+                        label = "signup_steps"
+                    ) { currentStep ->
+                        when (currentStep) {
+                            0 -> WelcomeStep(
+                                onNext = { step = 1 },
+                                onLoginClick = { navController.navigate(NavLogin) }
+                            )
+                            1 -> PersonalInfoStep(
+                                name = name, onNameChange = { name = it },
+                                gender = gender, onGenderChange = { gender = it },
+                                fitnessLevel = fitnessLevel, onFitnessLevelChange = { fitnessLevel = it },
+                                genders = genders, fitnessLevels = fitnessLevels,
+                                message = message
+                            )
+                            2 -> MetricsStep(
+                                age = age, onAgeChange = { age = it.filter { c -> c.isDigit() } },
+                                weight = weight, onWeightChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
+                                height = height, onHeightChange = { height = it.filter { c -> c.isDigit() || c == '.' } },
+                                message = message
+                            )
+                            3 -> AccountStep(
+                                email = email, onEmailChange = { email = it },
+                                password = password, onPasswordChange = { password = it },
+                                message = message, isLoading = isLoading
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(
-                    text = "Already have an account? Sign In",
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .clickable { onLoginClick() }
-                        .padding(vertical = 8.dp)
-                )
+                // ── Navigation buttons ───────────────────────────────
+                if (step > 0) {
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(tween(600, delayMillis = 400)) +
+                                slideInVertically(tween(600, delayMillis = 400), initialOffsetY = { it / 2 })
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Back button
+                            OutlinedButton(
+                                onClick = { step--; message = "" },
+                                enabled = !isLoading,
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SNeonGreen),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, SNeonGreen.copy(alpha = 0.5f))
+                            ) {
+                                Text("Back", fontWeight = FontWeight.SemiBold)
+                            }
+
+                            // Next / Sign Up button
+                            Button(
+                                onClick = {
+                                    when (step) {
+                                        1 -> {
+                                            if (name.isNotBlank() && gender.isNotBlank() && fitnessLevel.isNotBlank()) {
+                                                step = 2; message = ""
+                                            } else {
+                                                message = "Please fill all fields"
+                                            }
+                                        }
+                                        2 -> {
+                                            if (age.isNotBlank() && weight.isNotBlank() && height.isNotBlank()) {
+                                                if (!ValidationUtils.isValidAge(age)) { message = "Please enter a valid age (5-120)"; return@Button }
+                                                if (!ValidationUtils.isValidWeight(weight)) { message = "Please enter a realistic weight (20-400 kg)"; return@Button }
+                                                if (!ValidationUtils.isValidHeight(height)) { message = "Please enter a realistic height (50-250 cm)"; return@Button }
+                                                step = 3; message = ""
+                                            } else {
+                                                message = "Please fill all fields"
+                                            }
+                                        }
+                                        3 -> {
+                                            if (email.isNotBlank() && password.isNotBlank()) {
+                                                if (!ValidationUtils.isValidEmail(email)) { message = "Please enter a valid email"; return@Button }
+                                                if (!ValidationUtils.isStrongPassword(password)) { message = "Password must be at least 8 characters, include upper and lower case, a digit, and a special character"; return@Button }
+                                                isLoading = true
+                                                val userId = UUID.randomUUID().toString()
+                                                val user = hashMapOf("userId" to userId, "email" to email, "password" to password)
+                                                val metrics = hashMapOf(
+                                                    "userId" to userId, "name" to name,
+                                                    "gender" to gender, "fitnessLevel" to fitnessLevel,
+                                                    "age" to age, "weight" to weight, "height" to height
+                                                )
+                                                val db = FirebaseFirestore.getInstance()
+                                                db.collection("UserAuth").document(userId).set(user)
+                                                    .addOnSuccessListener {
+                                                        db.collection("UserMetrics").document(userId).set(metrics)
+                                                            .addOnSuccessListener { navController.navigate(NavLogin) }
+                                                            .addOnFailureListener { message = "Failed to save metrics: ${it.message}"; isLoading = false }
+                                                    }
+                                                    .addOnFailureListener { message = "Signup failed: ${it.message}"; isLoading = false }
+                                            } else {
+                                                message = "Please enter email and password"
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = !isLoading,
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SNeonGreen,
+                                    contentColor = SSlate900,
+                                    disabledContainerColor = SNeonGreen.copy(alpha = 0.4f),
+                                    disabledContentColor = SSlate900.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = SSlate900,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (step == 3) "Sign Up" else "Next",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ── Login link ───────────────────────────────────────
+                if (step > 0) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.alpha(if (isVisible) 1f else 0f)
+                    ) {
+                        Text(
+                            text = "Already have an account?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SSlateLabel
+                        )
+                        TextButton(
+                            onClick = { navController.navigate(NavLogin) },
+                            enabled = !isLoading
+                        ) {
+                            Text(
+                                text = "Login",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = SNeonSub
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 }
 
-// Helper function for consistent glass card style
+// ── Step indicator ────────────────────────────────────────────────────
+
 @Composable
-private fun GlassCardStyle(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.1f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun SignupStepIndicator(currentStep: Int, totalSteps: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.2f),
-                            Color.White.copy(alpha = 0.05f)
-                        )
+        repeat(totalSteps) { index ->
+            val isActive  = index <= currentStep
+            val isCurrent = index == currentStep
+
+            val scale by animateFloatAsState(
+                targetValue = if (isCurrent) 1.1f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "step_scale"
+            )
+            val backgroundColor by animateColorAsState(
+                targetValue = if (isActive) SNeonGreen else SSlate700,
+                animationSpec = tween(300),
+                label = "step_bg"
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .background(backgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isActive && !isCurrent) {
+                    Icon(Icons.Default.Check, contentDescription = null,
+                        tint = SSlate900, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isActive) SSlate900 else SSlate400
                     )
+                }
+            }
+
+            if (index < totalSteps - 1) {
+                val isCompleted = index < currentStep
+                val progress by animateFloatAsState(
+                    targetValue = if (isCompleted) 1f else 0f,
+                    animationSpec = tween(durationMillis = 400),
+                    label = "line_progress"
                 )
-                .border(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.5f),
-                            Color.White.copy(alpha = 0.1f)
-                        )
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                )
-        ) {
-            content()
+                Box(modifier = Modifier.width(40.dp).height(3.dp).padding(horizontal = 4.dp)) {
+                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(1.5.dp)).background(SSlate700))
+                    Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(progress).clip(RoundedCornerShape(1.5.dp)).background(SNeonGreen))
+                }
+            }
         }
     }
 }
 
-// Update text field colors for all steps
+// ── Step 0: Welcome ───────────────────────────────────────────────────
+
 @Composable
-private fun CustomOutlinedTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    leadingIcon: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    visualTransformation: VisualTransformation = VisualTransformation.None  // Fixed parameter type
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, color = TextSecondary) },
-        leadingIcon = leadingIcon,
-        singleLine = true,
-        modifier = modifier,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.White,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-            focusedLabelColor = Color.White,
-            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = Color.White
-        ),
-        textStyle = LocalTextStyle.current.copy(color = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        visualTransformation = visualTransformation
-    )
+private fun WelcomeStep(onNext: () -> Unit, onLoginClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(12.dp)) {
+        Icon(Icons.Default.FitnessCenter, contentDescription = null,
+            tint = SNeonGreen, modifier = Modifier.size(64.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Begin Your Journey", style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            "We'll customize your experience based on your fitness goals and posture needs.",
+            style = MaterialTheme.typography.bodyMedium, color = SSlateLabel, textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = onNext,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SNeonGreen, contentColor = SSlate900)
+        ) {
+            Text("Start Creating Account", fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = onLoginClick) {
+            Text("Already have an account? Login", color = SNeonGreen, fontWeight = FontWeight.SemiBold)
+        }
+    }
 }
+
+// ── Step 1: Personal Info ─────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PersonalInfoStep(
-    name: String,
-    onNameChange: (String) -> Unit,
-    gender: String,
-    onGenderChange: (String) -> Unit,
-    fitnessLevel: String,
-    onFitnessLevelChange: (String) -> Unit,
-    fitnessGoal: String,
-    onFitnessGoalChange: (String) -> Unit,
-    genders: List<String>,
-    fitnessLevels: List<String>,
-    fitnessGoals: List<String>,
-    message: String,
-    onNext: () -> Unit,
-    onBack: () -> Unit
+    name: String, onNameChange: (String) -> Unit,
+    gender: String, onGenderChange: (String) -> Unit,
+    fitnessLevel: String, onFitnessLevelChange: (String) -> Unit,
+    genders: List<String>, fitnessLevels: List<String>,
+    message: String
 ) {
-    GlassCardStyle(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .heightIn(min = 480.dp, max = 700.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
-        ) {
-            // Add back button at the top
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.Start)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Go back",
-                    tint = PrimaryGreen
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = PrimaryGreen,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Tell us about yourself",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextLight,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            CustomOutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                label = "Name or Nickname",
-                leadingIcon = {
-                    Icon(Icons.Default.Badge, contentDescription = null, tint = TextLight)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Gender dropdown
-            var genderExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = genderExpanded,
-                onExpandedChange = { genderExpanded = !genderExpanded }
-            ) {
-                OutlinedTextField(
-                    value = gender,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Gender") },
-                    leadingIcon = {
-                        Icon(Icons.Default.People, contentDescription = null, tint = PrimaryGreen)
-                    },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryGreen,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                        focusedLabelColor = PrimaryGreen,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                        focusedLeadingIconColor = PrimaryGreen,
-                        unfocusedLeadingIconColor = Color.White,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                ExposedDropdownMenu(
-                    expanded = genderExpanded,
-                    onDismissRequest = { genderExpanded = false },
-                    modifier = Modifier.background(Color(0xFF2A2A2A))  // Dark background for dropdown
-                ) {
-                    genders.forEach { genderOption ->
-                        DropdownMenuItem(
-                            text = { Text(genderOption, color = Color.White) },  // White text
-                            onClick = {
-                                onGenderChange(genderOption)
-                                genderExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Fitness Level dropdown
-            var fitnessExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = fitnessExpanded,
-                onExpandedChange = { fitnessExpanded = !fitnessExpanded }
-            ) {
-                OutlinedTextField(
-                    value = fitnessLevel,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Fitness Level") },
-                    leadingIcon = {
-                        Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = PrimaryGreen)
-                    },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fitnessExpanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryGreen,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                        focusedLabelColor = PrimaryGreen,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                        focusedLeadingIconColor = PrimaryGreen,
-                        unfocusedLeadingIconColor = Color.White,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                ExposedDropdownMenu(
-                    expanded = fitnessExpanded,
-                    onDismissRequest = { fitnessExpanded = false },
-                    modifier = Modifier.background(Color(0xFF2A2A2A))  // Dark background for dropdown
-                ) {
-                    fitnessLevels.forEach { level ->
-                        DropdownMenuItem(
-                            text = { Text(level, color = Color.White) },  // White text
-                            onClick = {
-                                onFitnessLevelChange(level)
-                                fitnessExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Fitness Goal dropdown
-            var goalExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = goalExpanded,
-                onExpandedChange = { goalExpanded = !goalExpanded }
-            ) {
-                OutlinedTextField(
-                    value = fitnessGoal,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Fitness Goal") },
-                    leadingIcon = {
-                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryGreen)
-                    },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = goalExpanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryGreen,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                        focusedLabelColor = PrimaryGreen,
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                        focusedLeadingIconColor = PrimaryGreen,
-                        unfocusedLeadingIconColor = Color.White,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                ExposedDropdownMenu(
-                    expanded = goalExpanded,
-                    onDismissRequest = { goalExpanded = false },
-                    modifier = Modifier.background(Color(0xFF2A2A2A))
-                ) {
-                    fitnessGoals.forEach { goal ->
-                        DropdownMenuItem(
-                            text = { Text(goal, color = Color.White) },
-                            onClick = {
-                                onFitnessGoalChange(goal)
-                                goalExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (message.isNotEmpty()) {
-                Text(
-                    text = message,
-                    color = ErrorRed,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
-
-            Button(
-                onClick = onNext,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryGreen
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "Continue",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+    Column {
+        Text("Tell us about yourself", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold, color = Color.White)
+        Spacer(modifier = Modifier.height(20.dp))
+        StepTextField(value = name, onValueChange = onNameChange, label = "Full Name",
+            placeholder = "Enter your name", icon = Icons.Default.Person)
+        Spacer(modifier = Modifier.height(16.dp))
+        DropdownField(value = gender, label = "Gender", options = genders,
+            onSelected = onGenderChange, icon = Icons.Default.People)
+        Spacer(modifier = Modifier.height(16.dp))
+        DropdownField(value = fitnessLevel, label = "Fitness Level", options = fitnessLevels,
+            onSelected = onFitnessLevelChange, icon = Icons.Default.FitnessCenter)
+        if (message.isNotEmpty() && message.contains("fields")) {
+            Text(text = message, color = SErrorRed,
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
+
+// ── Step 2: Metrics ───────────────────────────────────────────────────
 
 @Composable
 private fun MetricsStep(
-    age: String,
-    onAgeChange: (String) -> Unit,
-    weight: String,
-    onWeightChange: (String) -> Unit,
-    height: String,
-    onHeightChange: (String) -> Unit,
-    message: String,
-    onNext: () -> Unit,
-    onBack: () -> Unit  // Added onBack parameter
+    age: String, onAgeChange: (String) -> Unit,
+    weight: String, onWeightChange: (String) -> Unit,
+    height: String, onHeightChange: (String) -> Unit,
+    message: String
 ) {
-    GlassCardStyle(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.2f),  // Adjusted transparency
-                            Color.White.copy(alpha = 0.05f)   // Adjusted transparency
-                        )
-                    )
-                )
-                .border(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.5f),
-                            Color.White.copy(alpha = 0.1f)
-                        )
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                )
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
-            ) {
-                // Add back button at the top
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.Start)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Go back",
-                        tint = SecondaryOrange
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Timeline,
-                        contentDescription = null,
-                        tint = SecondaryOrange,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Your Fitness Metrics",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = TextLight,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                CustomOutlinedTextField(
-                    value = age,
-                    onValueChange = onAgeChange,
-                    label = "Age",
-                    leadingIcon = {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = SecondaryOrange)
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                CustomOutlinedTextField(
-                    value = weight,
-                    onValueChange = onWeightChange,
-                    label = "Weight (kg)",
-                    leadingIcon = {
-                        Icon(Icons.Default.MonitorWeight, contentDescription = null, tint = SecondaryOrange)
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                CustomOutlinedTextField(
-                    value = height,
-                    onValueChange = onHeightChange,
-                    label = "Height (cm)",
-                    leadingIcon = {
-                        Icon(Icons.Default.Straighten, contentDescription = null, tint = SecondaryOrange)
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (message.isNotEmpty()) {
-                    Text(
-                        text = message,
-                        color = ErrorRed,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-
-                Button(
-                    onClick = onNext,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SecondaryOrange
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "Continue",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+    Column {
+        Text("Fitness Metrics", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold, color = Color.White)
+        Spacer(modifier = Modifier.height(20.dp))
+        StepTextField(value = age, onValueChange = onAgeChange, label = "Age",
+            placeholder = "e.g. 25", icon = Icons.Default.CalendarToday,
+            keyboardType = KeyboardType.Number)
+        Spacer(modifier = Modifier.height(16.dp))
+        StepTextField(value = weight, onValueChange = onWeightChange, label = "Weight (kg)",
+            placeholder = "e.g. 70", icon = Icons.Default.MonitorWeight,
+            keyboardType = KeyboardType.Decimal)
+        Spacer(modifier = Modifier.height(16.dp))
+        StepTextField(value = height, onValueChange = onHeightChange, label = "Height (cm)",
+            placeholder = "e.g. 175", icon = Icons.Default.Straighten,
+            keyboardType = KeyboardType.Decimal)
+        if (message.isNotEmpty()) {
+            Text(text = message, color = SErrorRed,
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
 
+// ── Step 3: Account ───────────────────────────────────────────────────
+
 @Composable
 private fun AccountStep(
-    email: String,
-    onEmailChange: (String) -> Unit,
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    message: String,
-    onSignUp: () -> Unit,
-    onLoginClick: () -> Unit,
-    onBack: () -> Unit  // Added onBack parameter
+    email: String, onEmailChange: (String) -> Unit,
+    password: String, onPasswordChange: (String) -> Unit,
+    message: String, isLoading: Boolean
 ) {
-    GlassCardStyle(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .heightIn(min = 420.dp, max = 600.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 32.dp)
-        ) {
-            // Add back button at the top
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.Start)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Go back",
-                    tint = AccentBlue
-                )
-            }
+    var passwordVisible by remember { mutableStateOf(false) }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = null,
-                    tint = AccentBlue,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Create your account",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextLight,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            CustomOutlinedTextField(
-                value = email,
-                onValueChange = onEmailChange,
-                label = "Email Address",
-                leadingIcon = {
-                    Icon(Icons.Default.Email, contentDescription = null, tint = AccentBlue)
+    Column {
+        Text("Account Details", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold, color = Color.White)
+        Spacer(modifier = Modifier.height(20.dp))
+        StepTextField(value = email, onValueChange = onEmailChange, label = "Email",
+            placeholder = "your@email.com", icon = Icons.Default.Email,
+            keyboardType = KeyboardType.Email, enabled = !isLoading)
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = onPasswordChange,
+            label = { Text("Password") },
+            placeholder = { Text("Min 8 characters") },
+            leadingIcon = {
+                Icon(Icons.Default.Lock, contentDescription = null,
+                    tint = if (password.isNotEmpty()) SNeonGreen else SSlateLabel)
+            },
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null, tint = SSlateLabel
+                    )
                 }
+            },
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SNeonGreen, unfocusedBorderColor = SSlateBorder,
+                focusedLabelColor = SNeonGreen, unfocusedLabelColor = SSlateLabel,
+                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                cursorColor = SNeonGreen
             )
+        )
+        if (message.isNotEmpty()) {
+            Text(text = message, color = SErrorRed,
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(16.dp))
+// ── Reusable text field for steps ────────────────────────────────────
 
-            CustomOutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = "Password",
-                leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = AccentBlue)
-                },
-                visualTransformation = PasswordVisualTransformation()
+@Composable
+private fun StepTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    enabled: Boolean = true
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        leadingIcon = {
+            Icon(icon, contentDescription = null,
+                tint = if (value.isNotEmpty()) SNeonGreen else SSlateLabel)
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = SNeonGreen, unfocusedBorderColor = SSlateBorder,
+            focusedLabelColor = SNeonGreen, unfocusedLabelColor = SSlateLabel,
+            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+            cursorColor = SNeonGreen
+        )
+    )
+}
+
+// ── Dropdown for gender / fitness level ──────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DropdownField(
+    value: String,
+    label: String,
+    options: List<String>,
+    onSelected: (String) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            leadingIcon = {
+                Icon(icon, contentDescription = null,
+                    tint = if (value.isNotEmpty()) SNeonGreen else SSlateLabel)
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SNeonGreen, unfocusedBorderColor = SSlateBorder,
+                focusedLabelColor = SNeonGreen, unfocusedLabelColor = SSlateLabel,
+                focusedTextColor = Color.White, unfocusedTextColor = Color.White
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (message.isNotEmpty()) {
-                Text(
-                    text = message,
-                    color = if (message.contains("success")) SuccessGreen else ErrorRed,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = { onSelected(option); expanded = false }
                 )
             }
-
-            Button(
-                onClick = onSignUp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentBlue
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PersonAdd,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Create Account",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Already have an account? Sign In",
-                color = AccentBlue,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onLoginClick() }
-                    .padding(vertical = 8.dp)
-            )
         }
     }
 }

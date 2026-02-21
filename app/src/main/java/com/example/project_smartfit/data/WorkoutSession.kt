@@ -13,5 +13,6 @@ data class WorkoutSession(
     val durationSeconds: Int,
     val formScore: Int,            // 0–100
     val formTips: List<String>,    // unique tips received during the session
+    val formTipCounts: Map<String, Int> = emptyMap(), // tip text → occurrence count
     val timestamp: Long = System.currentTimeMillis()
 )

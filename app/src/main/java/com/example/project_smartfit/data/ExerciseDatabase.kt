@@ -121,7 +121,7 @@ object ExerciseDatabase {
         ExerciseInfo(
             id = "hammer curl",
             displayName = "Hammer Curl",
-            animationFile = "hammer curl.mp4",
+            animationFile = "hammer_curl.mp4",
             targetMuscles = listOf("Biceps", "Brachialis", "Forearms"),
             difficulty = "Beginner",
             instructions = listOf(

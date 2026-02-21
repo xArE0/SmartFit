@@ -200,6 +200,7 @@ private fun CameraContent(navController: NavController, planJson: String) {
     var goodFormFrames by remember { mutableIntStateOf(0) }
     var totalFormFrames by remember { mutableIntStateOf(0) }
     val collectedTips = remember { mutableSetOf<String>() }
+    val tipCountMap = remember { mutableMapOf<String, Int>() }
 
     // ── ML helpers ───────────────────────────────────────────────────
     val exerciseClassifier = remember { ExerciseClassifier(context) }
@@ -260,7 +261,8 @@ private fun CameraContent(navController: NavController, planJson: String) {
             holdSeconds = holdSeconds,
             durationSeconds = durationSec,
             formScore = formScore,
-            formTips = collectedTips.toList()
+            formTips = collectedTips.toList(),
+            formTipCounts = tipCountMap.toMap()
         )
         workoutRepo.saveSession(session)
         completedSessions.add(session)
@@ -277,6 +279,7 @@ private fun CameraContent(navController: NavController, planJson: String) {
         goodFormFrames = 0
         totalFormFrames = 0
         collectedTips.clear()
+        tipCountMap.clear()
         repCounter.reset()
         voiceFeedback.reset()
         wrongExerciseFrameCounter = 0
@@ -430,6 +433,7 @@ private fun CameraContent(navController: NavController, planJson: String) {
                                             goodFormFrames = 0
                                             totalFormFrames = 0
                                             collectedTips.clear()
+                                            tipCountMap.clear()
                                             voiceFeedback.announceExercise(lockedDisplayLabel)
                                         }
                                     }
@@ -478,7 +482,12 @@ private fun CameraContent(navController: NavController, planJson: String) {
 
                                 totalFormFrames++
                                 if (fb.isGoodForm) goodFormFrames++
-                                if (!fb.isGoodForm) collectedTips.addAll(fb.tips)
+                                if (!fb.isGoodForm) {
+                                    collectedTips.addAll(fb.tips)
+                                    fb.tips.forEach { tip ->
+                                        tipCountMap[tip] = (tipCountMap[tip] ?: 0) + 1
+                                    }
+                                }
 
                                 if (!fb.isGoodForm && fb.tips.isNotEmpty()) {
                                     val tip = fb.tips.first()
@@ -672,8 +681,11 @@ private fun CameraContent(navController: NavController, planJson: String) {
             }
         }
 
-        // ── Animation overlay (plan mode) ────────────────────────────
-        if (hasPlan && (workoutPhase == WorkoutPhase.PLAN_ACTIVE || workoutPhase == WorkoutPhase.PLAN_REST)) {
+        // ── Animation overlay (plan mode + free locked-in mode) ──────
+        if (lockedExercise.isNotEmpty() &&
+            (workoutPhase == WorkoutPhase.LOCKED_IN ||
+             workoutPhase == WorkoutPhase.PLAN_ACTIVE ||
+             workoutPhase == WorkoutPhase.PLAN_REST)) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
