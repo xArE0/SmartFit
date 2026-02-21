@@ -178,12 +178,21 @@ private fun CameraContent(navController: NavController, planJson: String) {
     val classificationVotes = remember { mutableMapOf<String, Int>() }
     var scanStartTimeMs by remember { mutableLongStateOf(0L) }
     var currentLabel by remember { mutableStateOf("") }
+    // Best-guess label during scanning — used for speculative rep counting
+    var candidateLabel by remember { mutableStateOf("") }
 
     // ── Workout state ────────────────────────────────────────────────
     var repCount by remember { mutableIntStateOf(0) }
     var holdSeconds by remember { mutableIntStateOf(0) }
     var feedbackState by remember { mutableStateOf(ExerciseFeedbackEngine.Feedback.NONE) }
     var feedbackFrameCounter by remember { mutableIntStateOf(0) }
+
+    // ── Plan mode: wrong-exercise detection ──────────────────────────
+    // Classifier runs every WRONG_EXERCISE_CHECK_INTERVAL frames in plan mode
+    // to verify the user is doing the correct exercise.
+    var wrongExerciseFrameCounter by remember { mutableIntStateOf(0) }
+    var wrongExerciseStrikes by remember { mutableIntStateOf(0) }
+    var wrongExerciseWarning by remember { mutableStateOf("") }
 
     // ── Session tracking for saving reports ───────────────────────────
     val workoutRepo = remember { WorkoutRepository.getInstance(context) }
@@ -201,6 +210,8 @@ private fun CameraContent(navController: NavController, planJson: String) {
     val CONVERGENCE_THRESHOLD = 3
     val MIN_SCAN_TIME_MS = 3_000L
     val MAX_SCAN_TIME_MS = 10_000L
+    val WRONG_EXERCISE_CHECK_INTERVAL = 90 // frames (~3s at 30fps)
+    val WRONG_EXERCISE_STRIKES_NEEDED = 2  // consecutive wrong checks before warning
 
     // ── Pose visibility gate (fixes erratic overlay bug) ─────────────
     var isPoseVisible by remember { mutableStateOf(true) }
@@ -268,6 +279,9 @@ private fun CameraContent(navController: NavController, planJson: String) {
         collectedTips.clear()
         repCounter.reset()
         voiceFeedback.reset()
+        wrongExerciseFrameCounter = 0
+        wrongExerciseStrikes = 0
+        wrongExerciseWarning = ""
     }
 
     // ── Helper: advance to next exercise in plan ─────────────────────
@@ -359,6 +373,16 @@ private fun CameraContent(navController: NavController, planJson: String) {
 
                     when (workoutPhase) {
                         WorkoutPhase.SCANNING -> {
+                            // ── Speculative rep counting ───────────────────────────────
+                            // Run repCounter every frame using the current best-guess label
+                            // so reps done during the scan window are NOT lost at lock-in.
+                            if (candidateLabel.isNotEmpty()) {
+                                val speculativeRep = repCounter.update(candidateLabel, landmarks)
+                                repCount = repCounter.repCount
+                                holdSeconds = repCounter.holdSeconds
+                                if (speculativeRep) voiceFeedback.announceRep(repCount)
+                            }
+
                             exerciseClassifier.addFrameAndClassify(landmarks) { classification ->
                                 if (classification.isConfident) {
                                     val label = classification.label
@@ -366,6 +390,15 @@ private fun CameraContent(navController: NavController, planJson: String) {
 
                                     val votes = classificationVotes.getOrDefault(label, 0) + 1
                                     classificationVotes[label] = votes
+
+                                    // Update candidate label to the current top-voted exercise
+                                    val topCandidate = classificationVotes.maxByOrNull { it.value }?.key ?: label
+                                    if (topCandidate != candidateLabel) {
+                                        // Exercise guess changed — reset speculative count
+                                        candidateLabel = topCandidate
+                                        repCounter.reset()
+                                        repCount = 0
+                                    }
 
                                     if (scanStartTimeMs == 0L) {
                                         scanStartTimeMs = System.currentTimeMillis()
@@ -383,7 +416,16 @@ private fun CameraContent(navController: NavController, planJson: String) {
                                             lockedDisplayLabel = best.key.split(" ")
                                                 .joinToString(" ") { w -> w.replaceFirstChar { it.uppercaseChar() } }
                                             workoutPhase = WorkoutPhase.LOCKED_IN
-                                            repCounter.reset()
+
+                                            // ── Carry speculative reps forward if the label matches ──
+                                            // Only reset if the locked exercise differs from what we
+                                            // were speculatively counting — otherwise keep the count.
+                                            if (lockedExercise != candidateLabel) {
+                                                repCounter.reset()
+                                                repCount = 0
+                                            }
+                                            // candidateLabel stays set — no need to clear
+
                                             sessionStartMs = System.currentTimeMillis()
                                             goodFormFrames = 0
                                             totalFormFrames = 0
@@ -428,7 +470,10 @@ private fun CameraContent(navController: NavController, planJson: String) {
                             feedbackFrameCounter++
                             if (feedbackFrameCounter >= FEEDBACK_VOICE_INTERVAL) {
                                 feedbackFrameCounter = 0
-                                val fb = ExerciseFeedbackEngine.analyse(lockedExercise, landmarks)
+                                // Pass repCounter.phase so feedback engine can gate phase-specific tips
+                                val fb = ExerciseFeedbackEngine.analyse(
+                                    lockedExercise, landmarks, repCounter.phase
+                                )
                                 feedbackState = fb
 
                                 totalFormFrames++
@@ -438,11 +483,37 @@ private fun CameraContent(navController: NavController, planJson: String) {
                                 if (!fb.isGoodForm && fb.tips.isNotEmpty()) {
                                     val tip = fb.tips.first()
                                     val now = System.currentTimeMillis()
-                                    // Only speak if different tip or cooldown elapsed
                                     if (tip != lastSpokenTip || (now - lastTipTimeMs) >= TIP_COOLDOWN_MS) {
                                         voiceFeedback.speakTip(tip)
                                         lastSpokenTip = tip
                                         lastTipTimeMs = now
+                                    }
+                                }
+                            }
+
+                            // ── Plan mode: wrong-exercise detector ────────────────────
+                            // Instead of running the classifier every frame (wasteful), we
+                            // run it once every WRONG_EXERCISE_CHECK_INTERVAL frames to
+                            // verify the user is actually doing the planned exercise.
+                            if (workoutPhase == WorkoutPhase.PLAN_ACTIVE) {
+                                wrongExerciseFrameCounter++
+                                if (wrongExerciseFrameCounter >= WRONG_EXERCISE_CHECK_INTERVAL) {
+                                    wrongExerciseFrameCounter = 0
+                                    exerciseClassifier.addFrameAndClassify(landmarks) { classification ->
+                                        if (classification.isConfident &&
+                                            classification.confidence >= 0.60f &&
+                                            classification.label != lockedExercise
+                                        ) {
+                                            wrongExerciseStrikes++
+                                            if (wrongExerciseStrikes >= WRONG_EXERCISE_STRIKES_NEEDED) {
+                                                wrongExerciseWarning =
+                                                    "Wrong exercise? Expected: $lockedDisplayLabel"
+                                            }
+                                        } else {
+                                            // User is doing the right thing — clear warning
+                                            wrongExerciseStrikes = 0
+                                            wrongExerciseWarning = ""
+                                        }
                                     }
                                 }
                             }
@@ -579,6 +650,28 @@ private fun CameraContent(navController: NavController, planJson: String) {
             }
         }
 
+        // ── Wrong-exercise warning overlay (plan mode) ────────────────
+        if (wrongExerciseWarning.isNotEmpty() && workoutPhase == WorkoutPhase.PLAN_ACTIVE) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(start = 24.dp, top = 56.dp, end = 24.dp)
+                    .background(Color(0xFFE65100).copy(alpha = 0.90f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⚠️ $wrongExerciseWarning",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+
         // ── Animation overlay (plan mode) ────────────────────────────
         if (hasPlan && (workoutPhase == WorkoutPhase.PLAN_ACTIVE || workoutPhase == WorkoutPhase.PLAN_REST)) {
             Box(
@@ -658,16 +751,12 @@ private fun CameraContent(navController: NavController, planJson: String) {
                         targetHold = 0,
                         setInfo = null,
                         onEndExercise = {
-                            saveCurrentExercise()
-                            // Reset for new scan
-                            workoutPhase = WorkoutPhase.SCANNING
-                            lockedExercise = ""
-                            lockedDisplayLabel = ""
-                            classificationVotes.clear()
-                            scanStartTimeMs = 0L
-                            currentLabel = ""
-                            resetForNextExercise()
-                            exerciseClassifier.resetBuffer()
+                            val session = saveCurrentExercise()
+                            // Free mode: go directly to summary screen
+                            val summaryJson = gson.toJson(listOf(session))
+                            navController.navigate(NavWorkoutSummary(summaryJson)) {
+                                popUpTo(NavExerciseCamera::class) { inclusive = true }
+                            }
                         }
                     )
                 }

@@ -57,7 +57,7 @@ android {
 
     // Don't compress ML model files
     androidResources {
-        noCompress += listOf("tflite", "task")
+        noCompress += listOf("tflite", "task", "mp4")
     }
 }
 
