@@ -32,13 +32,13 @@ The project includes evaluation charts and accuracy/loss curves demonstrating mo
 ## Appendix (selected images)
 The report appendix includes diagrams and screenshots used in the project. A selection of those images is included here for reference:
 
-![Workflow Overview](docs/images/image1.png)
+![Workflow Overview](docs/images/image3.png)
 
-![MoveNet System Diagram](docs/images/image2.png)
+![MoveNet System Diagram](docs/images/image21.png)
 
-![Model Architecture](docs/images/image3.png)
+![Model Architecture](docs/images/image31.png)
 
-![Evaluation Curve](docs/images/image4.png)
+![Evaluation Curve](docs/images/image33.png)
 
 Images and additional figures are available in the `docs/images` folder.
 
