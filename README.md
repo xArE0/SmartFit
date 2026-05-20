@@ -34,11 +34,11 @@ The report appendix includes diagrams and screenshots used in the project. A sel
 
 ![Workflow Overview](docs/images/image3.png)
 
-![MoveNet System Diagram](docs/images/image21.png)
+![MoveNet System Diagram](docs/images/image21.jpeg)
 
-![Model Architecture](docs/images/image31.png)
+![Model Architecture](docs/images/image31.jpeg)
 
-![Evaluation Curve](docs/images/image33.png)
+![Evaluation Curve](docs/images/image33.jpeg)
 
 Images and additional figures are available in the `docs/images` folder.
 
