@@ -1,5 +1,40 @@
+# Android/Gradle
+.gradle/
+/build/
+**/build/
+/.gradle
+
+# Local configuration
+local.properties
+
+# Google services
+**/google-services.json
+
+# Keystore files
+*.jks
+*.keystore
+*.pem
+*.p12
+*.pfx
+
+# Environment files
+.env
+
+# IDEs and editors
+.idea/
+*.iml
+.DS_Store
+
+# Misc
+captures/
+externalNativeBuild/
+.cxx/
+
+# Gradle wrapper
+!gradle/wrapper/gradle-wrapper.jar
 *.iml
 .gradle
+/.kotlin/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -13,3 +48,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+app/google-services.json
+
+gradle.properties
